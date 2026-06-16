@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Notification small icon. Status-bar small icons must be a single-color silhouette
+  on transparent — Android tints the whole shape with the accent color set via
+  NotificationCompat.Builder.setColor(). Mirrors the launcher icon's checkmark + burst.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Ring outline (matches the badge in the launcher icon) -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.8"
+        android:fillAlpha="0"
+        android:pathData="M12,12 m-8.5,0 a8.5,8.5 0,1 0,17 0 a8.5,8.5 0,1 0,-17 0z" />
+
+    <!-- Bold checkmark inside the ring -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillAlpha="0"
+        android:pathData="M7.7,12.3 L11,15.6 L16.5,9.4" />
+
+    <!-- Four short burst rays (matches the launcher's celebratory motif) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,0.6 l0.7,0 l-0.35,2.4 l-0.7,0 z
+                         M23.4,12 l0,0.7 l-2.4,-0.35 l0,-0.7 z
+                         M12,23.4 l-0.7,0 l0.35,-2.4 l0.7,0 z
+                         M0.6,12 l0,-0.7 l2.4,0.35 l0,0.7 z" />
+</vector>

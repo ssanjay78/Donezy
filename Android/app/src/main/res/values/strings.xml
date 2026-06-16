@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Donezy</string>
+    <string name="widget_description">Quick-log the next due tracker.</string>
+    <string name="widget_label">Donezy · Next due</string>
+    <string name="widget_default_title">Donezy</string>
+    <string name="widget_default_subtitle">Nothing scheduled</string>
+    <string name="widget_log_button">✓ Logged</string>
+</resources>

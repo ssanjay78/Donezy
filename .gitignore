@@ -1,10 +1,78 @@
+# ─── Donezy monorepo .gitignore ─────────────────────────────────────────────
+# Covers both the Android (Android/) and iOS (MacOs/) projects from the repo root.
+
+# ─── macOS / OS junk ────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ─── Editors / IDEs ─────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.swp
+*~
+
+# ════════════════════════════════════════════════════════════════════════════
+# Android  (Android/)
+# ════════════════════════════════════════════════════════════════════════════
 .gradle/
 .gradle-home/
 .kotlin/
-.DS_Store
-.idea/
-.vscode/
 build/
+**/build/
 local.properties
-*.iml
-app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android release signing — never commit
+keystore.properties
+*.jks
+*.keystore
+release/
+
+# ════════════════════════════════════════════════════════════════════════════
+# iOS / Xcode  (MacOs/)
+# ════════════════════════════════════════════════════════════════════════════
+# Per-user Xcode state (schemes/breakpoints/window layout). Shared schemes under
+# xcshareddata ARE committed and stay tracked.
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+
+# Build output / derived data
+DerivedData/
+build/
+*.ipa
+*.app
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods / Carthage (not used today, ignored for safety)
+Pods/
+Carthage/Build/
+
+# Fastlane / provisioning secrets
+*.mobileprovision
+*.cer
+*.p12
+*.certSigningRequest
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# ─── Python (icon/project generators in MacOs/) ─────────────────────────────
+__pycache__/
+*.pyc

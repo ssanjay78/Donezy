@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="database" path="hobby_log.db" />
+    <exclude domain="database" path="hobby_log.db-journal" />
+    <exclude domain="file" path="photos/" />
+    <exclude domain="sharedpref" path="hobby_log_prefs.xml" />
+</full-backup-content>

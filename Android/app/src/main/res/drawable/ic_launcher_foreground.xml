@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer celebratory burst (12 short rays radiating from the badge) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.8"
+        android:pathData="M54,18 l1.6,0 l-0.8,8 l-0.8,0 z
+                         M82.5,29.5 l1.1,1.1 l-5.6,5.6 l-1.1,-1.1 z
+                         M90,54 l0,1.6 l-8,-0.8 l0,-0.8 z
+                         M82.5,78.5 l-1.1,1.1 l-5.6,-5.6 l1.1,-1.1 z
+                         M54,90 l-1.6,0 l0.8,-8 l0.8,0 z
+                         M25.5,78.5 l-1.1,-1.1 l5.6,-5.6 l1.1,1.1 z
+                         M18,54 l0,-1.6 l8,0.8 l0,0.8 z
+                         M25.5,29.5 l1.1,-1.1 l5.6,5.6 l-1.1,1.1 z" />
+
+    <!-- White circular badge -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,28 m-26,0 a26,26 0,1 0,52 0 a26,26 0,1 0,-52 0z" />
+
+    <!-- Subtle inner ring -->
+    <path
+        android:strokeColor="#1A6B48"
+        android:strokeAlpha="0.12"
+        android:strokeWidth="1.5"
+        android:pathData="M54,54 m-22,0 a22,22 0,1 0,44 0 a22,22 0,1 0,-44 0z"
+        android:fillAlpha="0" />
+
+    <!-- The big tick — bold, slightly tilted, grounded in the bottom-right of the badge -->
+    <path
+        android:strokeColor="#1A6B48"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillAlpha="0"
+        android:pathData="M40,55 L51,67 L70,44" />
+
+    <!-- Small motion blur dots trailing the tick (kinetic feel) -->
+    <path
+        android:fillColor="#1A6B48"
+        android:fillAlpha="0.3"
+        android:pathData="M73,42 a2,2 0,1 0,0.001 0z
+                         M77,40 a1.5,1.5 0,1 0,0.001 0z" />
+</vector>

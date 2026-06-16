@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- USE_EXACT_ALARM is auto-granted on API 33+ for task-reminder/alarm-clock apps.
+         SCHEDULE_EXACT_ALARM is needed for API 31-32 only; cap maxSdk so Play Console
+         doesn't ask for sensitive-permission justification on supported APIs. -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Widget surfaces explicitly require this declaration to be selectable on
+         the launcher's widget picker on some launchers. -->
+    <queries>
+        <intent>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme"
+        tools:targetApi="35">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Translucent picker shown by the reminder notification's "Snooze" action.
+             excludeFromRecents + noHistory keep it from lingering in the task switcher. -->
+        <activity
+            android:name=".SnoozeActivity"
+            android:exported="false"
+            android:theme="@style/SnoozeDialogTheme"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+
+        <receiver
+            android:name=".ReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".StreakRescueReceiver"
+            android:exported="false" />
+
+        <!-- Boot/replace re-arms scheduled alarms. The receiver is exported because
+             the system fires BOOT_COMPLETED, but the permission attribute restricts
+             senders to those holding RECEIVE_BOOT_COMPLETED, satisfying Play's
+             hardening guidance for exported components. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- AppWidget host requires APPWIDGET_UPDATE on the public exported path.
+             Custom intra-app actions (quick-log, refresh) are sent via *explicit*
+             component intents in code, so they don't need an intent-filter and
+             we deliberately omit them here to limit the exported attack surface. -->
+        <receiver
+            android:name=".NextDueWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_next_due_info" />
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+</manifest>

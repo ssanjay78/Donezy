@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_background">
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFFFF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="@string/widget_default_title" />
+
+    <!-- Subtitle takes the available vertical space so the button is pinned to the
+         bottom. RemoteViews allow weights but disallow <Space>/<View> spacers. -->
+    <TextView
+        android:id="@+id/widget_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:textSize="12sp"
+        android:textColor="#CCFFFFFF"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:gravity="top"
+        android:layout_marginTop="2dp"
+        android:text="@string/widget_default_subtitle" />
+
+    <Button
+        android:id="@+id/widget_log_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textAllCaps="false"
+        android:layout_marginTop="6dp"
+        android:textColor="#FF1A6B48"
+        android:background="@drawable/widget_button_background"
+        android:text="@string/widget_log_button" />
+</LinearLayout>

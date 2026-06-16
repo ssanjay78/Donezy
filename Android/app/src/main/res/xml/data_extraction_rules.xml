@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="hobby_log.db" />
+        <exclude domain="database" path="hobby_log.db-journal" />
+        <exclude domain="file" path="photos/" />
+        <exclude domain="sharedpref" path="hobby_log_prefs.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="hobby_log.db" />
+        <include domain="file" path="photos/" />
+        <include domain="sharedpref" path="hobby_log_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>
