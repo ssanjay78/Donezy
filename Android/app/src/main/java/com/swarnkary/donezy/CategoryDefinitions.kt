@@ -25,12 +25,6 @@ val hobbyCategories = listOf(
     CategoryOption("Fitness",     "💪", "Workouts, mobility, recovery, steps, practice streaks.",
         "Routine, target frequency, current baseline, progress marker, and recovery notes.",
         Color(0xFFB14E32)),
-    CategoryOption("Medicine",    "💊", "Medications, dosages, refills, side effects.",
-        "Drug name, dosage, schedule (morning/evening), refill date, and side effects to watch for.",
-        Color(0xFFD81B60)),
-    CategoryOption("Health",      "❤️", "Doctor visits, sleep, hydration, vitals, symptoms.",
-        "What to track (BP, weight, sleep, hydration), check-up cadence, and any doctor's notes.",
-        Color(0xFFC2185B)),
     CategoryOption("Mindfulness", "🧘", "Meditation, journaling, breathing, gratitude.",
         "Practice length, technique, intentions, and how you felt before/after.",
         Color(0xFF7E57C2)),
@@ -128,12 +122,6 @@ val hobbyTemplates = listOf(
         "Track watering, leaf checks, pruning, fertilizer, and light changes.", 72L),
     HobbyTemplate("Daily meditation",  "Mindfulness", "Morning meditation",
         "Capture practice length, technique, intention, and how you felt before/after.", 24L),
-    HobbyTemplate("Medication",        "Medicine",    "Daily meds",
-        "Track medications taken, missed doses, refill dates, and side effects.", 24L),
-    HobbyTemplate("Refill calendar",   "Medicine",    "Prescription refills",
-        "Each prescription's name, dosage, supply remaining, pharmacy, and next refill date.", 168L),
-    HobbyTemplate("Sleep journal",     "Health",      "Sleep tracker",
-        "Bedtime, wake time, sleep quality (1–5), dreams or wake-ups, energy in the morning.", 24L),
     HobbyTemplate("Coffee dial-in",    "Coffee",      "Espresso recipe",
         "Record bean, dose, yield, grind, shot time, and taste notes.", 0L),
     HobbyTemplate("Cooking journal",   "Cooking",     "Weeknight dinners",
@@ -214,15 +202,6 @@ fun quickLogPresetsFor(category: String): List<QuickLogPreset> =
             QuickLogPreset("Studied",    "Completed a learning session and captured notes."),
             QuickLogPreset("Practiced",  "Finished exercises or applied the concept."),
             QuickLogPreset("Reviewed",   "Reviewed mistakes, questions, and next lesson."))
-        "Medicine"    -> listOf(
-            QuickLogPreset("Took dose",  "Took today's dose on schedule."),
-            QuickLogPreset("Skipped",    "Skipped a dose — noted reason."),
-            QuickLogPreset("Side effect","Logged a side effect or interaction."),
-            QuickLogPreset("Refilled",   "Refilled prescription, captured next refill date."))
-        "Health"      -> listOf(
-            QuickLogPreset("Vitals",     "Logged vitals (BP, weight, sleep, hydration)."),
-            QuickLogPreset("Symptom",    "Noted a symptom or how I'm feeling today."),
-            QuickLogPreset("Doctor",     "Doctor visit, results, or follow-up captured."))
         "Mindfulness" -> listOf(
             QuickLogPreset("Meditated",  "Completed a meditation or breathing session."),
             QuickLogPreset("Journaled",  "Wrote a reflection or gratitude entry."),
@@ -234,7 +213,7 @@ fun quickLogPresetsFor(category: String): List<QuickLogPreset> =
         "Pets"        -> listOf(
             QuickLogPreset("Fed",        "Fed pet on schedule."),
             QuickLogPreset("Walked",     "Took pet for a walk or play session."),
-            QuickLogPreset("Vet",        "Vet visit, medication, or grooming logged."))
+            QuickLogPreset("Vet",        "Vet visit, grooming, or care note logged."))
         "Travel"      -> listOf(
             QuickLogPreset("Visited",    "Logged a place visited and quick highlights."),
             QuickLogPreset("Spent",      "Captured an expense or receipt."),

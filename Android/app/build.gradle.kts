@@ -22,8 +22,8 @@ android {
         applicationId = "com.swarnkary.donezy"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.0.2"
 
         // Restrict resource configurations and ABIs we actually need — keeps the
         // bundle small and reduces Play Console upload size warnings.

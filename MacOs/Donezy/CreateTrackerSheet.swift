@@ -222,33 +222,57 @@ private struct ReminderSection: View {
     }
 }
 
-/// Combined date or time picker presented as a sheet; writes back the merged instant.
+/// Date or time picker presented as a sheet; writes back the merged instant.
+///
+/// Mirrors the Android `ReminderSection` dialogs:
+///  • date mode  → a full month calendar (Material3 `DatePicker` equivalent). When no
+///    reminder is set yet, the time defaults to 9:00 AM, exactly like Android.
+///  • time mode  → an always-visible wheel clock, the closest iOS-native match to
+///    Android's `TimePicker` dial; the existing date is preserved.
 private struct DateTimePickerSheet: View {
     @Binding var reminderAt: Int64?
     enum Mode { case date, time }
     let mode: Mode
     let onClose: () -> Void
 
+    @Environment(\.theme) private var theme
     @State private var selection: Date
 
     init(reminderAt: Binding<Int64?>, mode: Mode, onClose: @escaping () -> Void) {
         _reminderAt = reminderAt
         self.mode = mode
         self.onClose = onClose
-        let base = reminderAt.wrappedValue ?? (nowMillis() + DAY_MS)
-        _selection = State(initialValue: Date(timeIntervalSince1970: Double(base) / 1000.0))
+
+        let calendar = Calendar.current
+        if let existing = reminderAt.wrappedValue {
+            // Editing an existing reminder — start from it.
+            _selection = State(initialValue: Date(timeIntervalSince1970: Double(existing) / 1000.0))
+        } else {
+            // No reminder yet: default to tomorrow at 9:00 AM (matches Android).
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+            let nineAM = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+            _selection = State(initialValue: nineAM)
+        }
     }
 
     var body: some View {
         NavigationStack {
             VStack {
-                DatePicker("", selection: $selection,
-                           displayedComponents: mode == .date ? .date : .hourAndMinute)
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                Spacer()
+                if mode == .date {
+                    DatePicker("", selection: $selection, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .padding(.horizontal)
+                    Spacer()
+                } else {
+                    Spacer()
+                    DatePicker("", selection: $selection, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                    Spacer()
+                }
             }
-            .padding()
+            .padding(.vertical)
             .navigationTitle(mode == .date ? "Pick date" : "Pick time")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -261,7 +285,7 @@ private struct DateTimePickerSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(mode == .date ? [.large] : [.medium])
     }
 }
 

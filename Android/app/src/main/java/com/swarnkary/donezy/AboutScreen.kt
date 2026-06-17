@@ -84,7 +84,7 @@ fun AboutScreen(viewModel: HobbyViewModel) {
                 title = "What it is",
                 body = "A local-first tracker for plant care, mechanical keyboards, sneaker " +
                     "collecting, aquarium maintenance, brewing routines, study habits, " +
-                    "medication, and similar life routines. Everything stays on your device."
+                    "and similar life routines. Everything stays on your device."
             )
 
             AboutCard(

@@ -5,13 +5,16 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- USE_EXACT_ALARM is auto-granted on API 33+ for task-reminder/alarm-clock apps.
-         SCHEDULE_EXACT_ALARM is needed for API 31-32 only; cap maxSdk so Play Console
-         doesn't ask for sensitive-permission justification on supported APIs. -->
+    <!-- Reminder scheduling uses inexact alarms on API 33+ (no special permission
+         needed). SCHEDULE_EXACT_ALARM is requested only on API 31-32 (capped via
+         maxSdk); on those versions it is granted by default and can be revoked by the
+         user, in which case the code falls back to inexact alarms. USE_EXACT_ALARM is
+         deliberately NOT declared: it is a restricted permission Google reserves for
+         apps whose core purpose is alarms/clocks/calendars, and declaring it on a
+         habit tracker risks a policy rejection. -->
     <uses-permission
         android:name="android.permission.SCHEDULE_EXACT_ALARM"
         android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Widget surfaces explicitly require this declaration to be selectable on
