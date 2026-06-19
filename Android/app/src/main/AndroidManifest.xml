@@ -12,9 +12,7 @@
          deliberately NOT declared: it is a restricted permission Google reserves for
          apps whose core purpose is alarms/clocks/calendars, and declaring it on a
          habit tracker risks a policy rejection. -->
-    <uses-permission
-        android:name="android.permission.SCHEDULE_EXACT_ALARM"
-        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Widget surfaces explicitly require this declaration to be selectable on
@@ -27,6 +25,7 @@
 
     <application
         android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
@@ -92,6 +91,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_next_due_info" />
+        </receiver>
+
+        <receiver
+            android:name=".StreakWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_streak_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_streak_info" />
         </receiver>
 
         <provider

@@ -31,9 +31,18 @@ class MainActivity : ComponentActivity() {
             val themeMode by viewModel.themeMode.collectAsState()
             val pending by pendingHobbyId.collectAsState()
 
+            var showOnboarding by remember { mutableStateOf(!viewModel.onboardingCompleted) }
+
             HobbyLogTheme(themeMode = themeMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    HobbyLogApp(viewModel)
+                    if (showOnboarding) {
+                        OnboardingScreen(onComplete = {
+                            viewModel.completeOnboarding()
+                            showOnboarding = false
+                        })
+                    } else {
+                        HobbyLogApp(viewModel)
+                    }
                 }
             }
 
@@ -55,6 +64,11 @@ class MainActivity : ComponentActivity() {
         if (id > 0L && pendingHobbyId.value != id) {
             pendingHobbyId.value = id
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        NotificationSoundPlayer.stop()
     }
 }
 

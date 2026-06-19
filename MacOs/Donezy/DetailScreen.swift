@@ -13,6 +13,17 @@ struct DetailScreen: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showShareSheet = false
     @State private var shareURL: URL?
+    
+    // Log editing state
+    @State private var editingLog: HobbyLog?
+    @State private var editEntry = ""
+    @State private var editRating: Int?
+    @State private var editPhoto: String?
+    
+    // Date range searching state
+    @State private var fromDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+    @State private var toDate = Date()
+    @State private var isFiltered = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,6 +54,12 @@ struct DetailScreen: View {
         }
         .sheet(isPresented: $showShareSheet) {
             if let shareURL { ShareSheet(items: [shareURL]) }
+        }
+        .sheet(item: $editingLog) { log in
+            EditLogSheet(log: log, entry: $editEntry, rating: $editRating, photo: $editPhoto,
+                         theme: theme, viewModel: viewModel) {
+                editingLog = nil
+            }
         }
         .alert("Delete tracker?", isPresented: $showDeleteDialog) {
             Button("Cancel", role: .cancel) {}
@@ -102,6 +119,7 @@ struct DetailScreen: View {
         let hobby = detail.hobby
         let category = categoryFor(hobby.category)
         let logs = detail.logs
+        let filteredLogsList = viewModel.filteredLogs
         let streak = StreakMath.computeStreak(logs)
         let daysSince = StreakMath.daysSinceLastLog(logs)
         let quickLogs = quickLogPresetsFor(hobby.category)
@@ -115,7 +133,9 @@ struct DetailScreen: View {
                 if !logs.isEmpty { InsightsCard(logs: logs) }
 
                 if (!logs.isEmpty || hobby.weeklyGoal > 0) && (hobby.weeklyGoal > 0 || !earned.isEmpty) {
-                    AchievementCard(snapshot: snapshot, earned: earned)
+                    AchievementCard(snapshot: snapshot, earned: earned) { achievement in
+                        shareAchievement(achievement, hobbyName: hobby.name)
+                    }
                 }
 
                 // Quick log chips
@@ -136,13 +156,46 @@ struct DetailScreen: View {
 
                 ReminderSummaryCard(hobby: hobby, onEdit: { showEditSheet = true }, onClear: { viewModel.clearReminder(hobby) })
 
-                SectionHeader(title: "Log history", subtitle: "\(logs.count) entries")
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionHeader(title: "Log history", subtitle: "\(filteredLogsList.count) entries")
+                    
+                    // Date range selection controls
+                    HStack {
+                        DatePicker("From", selection: $fromDate, displayedComponents: .date)
+                            .labelsHidden()
+                        Text("to")
+                        DatePicker("To", selection: $toDate, displayedComponents: .date)
+                            .labelsHidden()
+                        Button("Filter") {
+                            let fromMs = Int64(fromDate.timeIntervalSince1970 * 1000)
+                            let toMs = Int64(toDate.timeIntervalSince1970 * 1000)
+                            viewModel.filterLogsByDateRange(hobbyId: hobby.id, fromMs: fromMs, toMs: toMs)
+                            isFiltered = true
+                        }
+                        .buttonStyle(.bordered)
+                        if isFiltered {
+                            Button("Clear") {
+                                viewModel.clearLogDateFilter(hobbyId: hobby.id)
+                                isFiltered = false
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
 
-                if logs.isEmpty { EmptyLogState() }
+                if filteredLogsList.isEmpty { EmptyLogState() }
 
-                ForEach(logs) { log in
-                    LogCard(log: log) { viewModel.deleteLog(hobbyId: hobby.id, logId: log.id) }
-                        .swipeActionDelete { viewModel.deleteLog(hobbyId: hobby.id, logId: log.id) }
+                ForEach(filteredLogsList) { log in
+                    LogCard(log: log, onEdit: {
+                        editEntry = log.entry
+                        editRating = log.rating
+                        editPhoto = log.photoUri
+                        editingLog = log
+                    }, onDelete: {
+                        viewModel.deleteLog(hobbyId: hobby.id, logId: log.id)
+                    })
+                    .swipeActionDelete { viewModel.deleteLog(hobbyId: hobby.id, logId: log.id) }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 40)
@@ -197,6 +250,21 @@ struct DetailScreen: View {
         .padding(16)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+    }
+
+    private func shareAchievement(_ a: Achievement, hobbyName: String) {
+        let card = ShareableAchievementCard(achievement: a, hobbyName: hobbyName, theme: theme)
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 3.0
+        if let image = renderer.uiImage {
+            let dir = FileManager.default.temporaryDirectory
+            let url = dir.appendingPathComponent("achievement_\(a.title).png")
+            if let data = image.pngData() {
+                try? data.write(to: url)
+                shareURL = url
+                showShareSheet = true
+            }
+        }
     }
 }
 
@@ -291,6 +359,31 @@ struct InsightsCard: View {
         let total = countsByDay.values.reduce(0, +)
         let maxCount = max(countsByDay.values.max() ?? 0, 1)
 
+        // Rating average calculations
+        let ratedLogs = logs.filter { $0.rating != nil }
+        let avgRating = ratedLogs.isEmpty ? nil : Double(ratedLogs.reduce(0) { $0 + ($1.rating ?? 0) }) / Double(ratedLogs.count)
+
+        // Time of Day distribution calculations
+        let timeOfDayDistribution: [(String, Int)] = {
+            var dist = ["Morning": 0, "Afternoon": 0, "Evening": 0, "Night": 0]
+            for log in logs {
+                let date = Date(timeIntervalSince1970: Double(log.createdAt) / 1000.0)
+                let hour = cal.component(.hour, from: date)
+                switch hour {
+                case 5...11: dist["Morning"] = (dist["Morning"] ?? 0) + 1
+                case 12...16: dist["Afternoon"] = (dist["Afternoon"] ?? 0) + 1
+                case 17...20: dist["Evening"] = (dist["Evening"] ?? 0) + 1
+                default: dist["Night"] = (dist["Night"] ?? 0) + 1
+                }
+            }
+            return [
+                ("Morning", dist["Morning"] ?? 0),
+                ("Afternoon", dist["Afternoon"] ?? 0),
+                ("Evening", dist["Evening"] ?? 0),
+                ("Night", dist["Night"] ?? 0)
+            ]
+        }()
+
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading) {
@@ -316,6 +409,45 @@ struct InsightsCard: View {
                     .padding(.horizontal, 16)
                 }
                 .onAppear { proxy.scrollTo(days.count - 1, anchor: .trailing) }
+            }
+            
+            Divider().padding(.horizontal, 16).padding(.vertical, 4)
+            
+            VStack(alignment: .leading, spacing: 10) {
+                // Average Rating Parity
+                if let avgRating {
+                    HStack(spacing: 6) {
+                        Text("Avg. rating:").font(.system(size: 14, weight: .semibold))
+                        StarDisplay(rating: Int(avgRating.rounded()))
+                        Text(String(format: "%.1f / 5.0", avgRating))
+                            .font(.system(size: 14)).foregroundColor(theme.onSurfaceVariant)
+                    }
+                    .padding(.horizontal, 16)
+                }
+                
+                // Time of Day distribution Parity
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Time of Day Distribution")
+                        .font(.system(size: 14, weight: .semibold))
+                    HStack(spacing: 8) {
+                        let maxDist = max(timeOfDayDistribution.map { $0.1 }.max() ?? 1, 1)
+                        ForEach(timeOfDayDistribution, id: \.0) { label, count in
+                            VStack(alignment: .center, spacing: 4) {
+                                Text(label).font(.system(size: 11)).foregroundColor(theme.onSurfaceVariant)
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(theme.surfaceVariant)
+                                    Capsule().fill(theme.primary)
+                                        .frame(height: 8)
+                                        .frame(maxWidth: .infinity)
+                                        .scaleEffect(x: CGFloat(count) / CGFloat(maxDist), y: 1.0, anchor: .leading)
+                                }
+                                .frame(height: 8)
+                                Text("\(count) logs").font(.system(size: 11, weight: .semibold))
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
             }
         }
         .padding(.vertical, 16)
@@ -369,6 +501,7 @@ private struct DayCandle: View {
 struct AchievementCard: View {
     let snapshot: AchievementSnapshot
     let earned: [Achievement]
+    let onShare: (Achievement) -> Void
     @Environment(\.theme) private var theme
 
     var body: some View {
@@ -394,7 +527,11 @@ struct AchievementCard: View {
             if !earned.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(earned) { a in AchievementChip(achievement: a) }
+                        ForEach(earned) { a in
+                            AchievementChip(achievement: a) {
+                                onShare(a)
+                            }
+                        }
                     }
                 }
             } else if snapshot.weeklyGoal == 0 {
@@ -410,14 +547,43 @@ struct AchievementCard: View {
 
 private struct AchievementChip: View {
     let achievement: Achievement
+    let onShare: () -> Void
     @Environment(\.theme) private var theme
     var body: some View {
         HStack(spacing: 6) {
             Text(achievement.emoji)
             Text(achievement.title).font(.system(size: 12, weight: .semibold)).foregroundColor(theme.onSecondaryContainer)
+            Button(action: onShare) {
+                Image(systemName: "square.and.arrow.up").font(.system(size: 11))
+                    .foregroundColor(theme.onSecondaryContainer.opacity(0.6))
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(theme.secondaryContainer, in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+// ─── Shareable achievement card image ─────────────────────────────────────────
+
+struct ShareableAchievementCard: View {
+    let achievement: Achievement
+    let hobbyName: String
+    let theme: AppTheme
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(achievement.emoji).font(.system(size: 60))
+            Text(achievement.title).font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+            Text(achievement.tagline).font(.system(size: 14)).foregroundColor(.white.opacity(0.9))
+            Text("Earned in \(hobbyName) on Donezy")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white.opacity(0.7))
+        }
+        .padding(30)
+        .frame(width: 300, height: 250)
+        .background(LinearGradient(colors: [theme.primary, theme.tertiary], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .cornerRadius(20)
     }
 }
 
@@ -444,7 +610,7 @@ struct ReminderSummaryCard: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "Reminder", subtitle: status.label)
             Text(hobby.nextReminderAt.map { formatDate($0) } ?? "No reminder set")
-                .font(.system(size: 14))
+                .font(.system(size: 14) )
             if hobby.nextReminderAt != nil {
                 Text(rule).font(.system(size: 12)).foregroundColor(theme.onSurfaceVariant)
             }
@@ -470,6 +636,7 @@ struct ReminderSummaryCard: View {
 
 struct LogCard: View {
     let log: HobbyLog
+    let onEdit: () -> Void
     let onDelete: () -> Void
     @Environment(\.theme) private var theme
 
@@ -478,8 +645,13 @@ struct LogCard: View {
             HStack {
                 Text(formatDate(log.createdAt)).font(.system(size: 14, weight: .medium)).foregroundColor(theme.primary)
                 Spacer()
-                HStack {
+                HStack(spacing: 12) {
                     if let rating = log.rating { StarDisplay(rating: rating) }
+                    Button(action: onEdit) {
+                        Image(systemName: "pencil").font(.system(size: 16))
+                            .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
                     Button(action: onDelete) {
                         Image(systemName: "trash").font(.system(size: 16))
                             .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
@@ -502,7 +674,72 @@ struct LogCard: View {
     }
 }
 
-/// Loads a `file://` image from the shared container.
+// ─── Edit Log Sheet ─────────────────────────────────────────────────────────
+
+struct EditLogSheet: View {
+    let log: HobbyLog
+    @Binding var entry: String
+    @Binding var rating: Int?
+    @Binding var photo: String?
+    let theme: AppTheme
+    let viewModel: HobbyViewModel
+    let onDismiss: () -> Void
+
+    @State private var photoItem: PhotosPickerItem?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Log Entry") {
+                    TextEditor(text: $entry)
+                        .frame(minHeight: 100)
+                }
+                Section("Rating") {
+                    StarRatingRow(rating: rating) { rating = $0 }
+                }
+                Section("Photo") {
+                    HStack {
+                        PhotosPicker(selection: $photoItem, matching: .images) {
+                            Label(photo == nil ? "Add photo" : "Replace photo", systemImage: "camera")
+                        }
+                        if photo != nil {
+                            Spacer()
+                            Button(role: .destructive) { photo = nil; photoItem = nil } label: { Image(systemName: "trash") }
+                        }
+                    }
+                    if let uri = photo, let url = URL(string: uri) {
+                        LogImage(url: url)
+                            .frame(maxWidth: .infinity).frame(height: 150)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+            }
+            .navigationTitle("Edit Log")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { onDismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        viewModel.updateLog(hobbyId: log.hobbyId, logId: log.id, entry: entry, rating: rating, photoUri: photo)
+                        onDismiss()
+                    }
+                }
+            }
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self) {
+                        photo = viewModel.importPhoto(data: data)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Loads a `file://` image from the shared container (CX3 broken state fix).
 struct LogImage: View {
     let url: URL
     @Environment(\.theme) private var theme
@@ -510,7 +747,12 @@ struct LogImage: View {
         if let data = try? Data(contentsOf: url), let ui = UIImage(data: data) {
             Image(uiImage: ui).resizable().scaledToFill()
         } else {
-            theme.surfaceVariant
+            ZStack {
+                theme.surfaceVariant
+                Image(systemName: "photo.badge.exclamationmark")
+                    .font(.system(size: 24))
+                    .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
+            }
         }
     }
 }

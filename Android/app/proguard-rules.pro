@@ -15,9 +15,11 @@
 
 # AppWidgetProvider + receivers are referenced from the manifest only.
 -keep class com.swarnkary.donezy.NextDueWidgetProvider { *; }
+-keep class com.swarnkary.donezy.StreakWidgetProvider { *; }
 -keep class com.swarnkary.donezy.ReminderReceiver { *; }
 -keep class com.swarnkary.donezy.StreakRescueReceiver { *; }
 -keep class com.swarnkary.donezy.BootReceiver { *; }
+-keep class com.swarnkary.donezy.NotificationSoundPlayer { *; }
 
 # Coil — pull in the right OkHttp/coroutines setup.
 -keep class coil.** { *; }

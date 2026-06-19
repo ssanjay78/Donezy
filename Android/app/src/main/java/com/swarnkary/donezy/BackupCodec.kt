@@ -10,7 +10,7 @@ import org.json.JSONObject
  */
 object BackupCodec {
 
-    private const val VERSION = 4
+    private const val VERSION = 5
 
     fun encode(hobbies: List<Hobby>, logs: List<HobbyLog>): String {
         val root = JSONObject()
@@ -33,6 +33,7 @@ object BackupCodec {
                 put("recurrenceType", type)
                 put("recurrenceData", data)
                 put("weeklyGoal", h.weeklyGoal)
+                put("sortOrder", h.sortOrder)
             })
         }
         root.put("hobbies", hobbiesArr)
@@ -55,6 +56,10 @@ object BackupCodec {
 
     fun decode(json: String): Pair<List<Hobby>, List<HobbyLog>> {
         val root = JSONObject(json)
+        val version = root.optInt("version", 1)
+        if (version > VERSION) throw IllegalStateException(
+            "Backup version $version is newer than supported ($VERSION). Please update Donezy."
+        )
         val hobbiesArr = root.optJSONArray("hobbies") ?: JSONArray()
         val logsArr = root.optJSONArray("logs") ?: JSONArray()
 
@@ -79,7 +84,8 @@ object BackupCodec {
                         isArchived = o.optBoolean("isArchived", false),
                         reminderIntervalHours = intervalHours,
                         recurrence = recurrence,
-                        weeklyGoal = o.optInt("weeklyGoal", 0)
+                        weeklyGoal = o.optInt("weeklyGoal", 0),
+                        sortOrder = o.optInt("sortOrder", 0)
                     )
                 )
             }

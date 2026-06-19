@@ -5,11 +5,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.Alignment
@@ -29,6 +35,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -45,10 +53,13 @@ fun HomeScreen(viewModel: HobbyViewModel) {
     val logDaysByHobby by viewModel.logDaysByHobby.collectAsState()
     val logSearchResults by viewModel.logSearchResults.collectAsState()
     val logSearchQuery by viewModel.logSearchQuery.collectAsState()
+    val showRestoreConfirm by viewModel.showRestoreConfirm.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
+    val selectedIds = remember { mutableStateListOf<Long>() }
     var showCreateSheet  by remember { mutableStateOf(false) }
     var prefillTemplate  by remember { mutableStateOf<HobbyTemplate?>(null) }
     val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -123,9 +134,11 @@ fun HomeScreen(viewModel: HobbyViewModel) {
                         .thenBy { it.nextReminderAt == null }
                         .thenBy { it.nextReminderAt ?: Long.MAX_VALUE })
                     SortBy.RecentActivity -> list.sortedWith(compareByDescending<Hobby> { it.isPinned }
-                        .thenByDescending { it.createdAt })
+                        .thenByDescending { logDaysByHobby[it.id]?.firstOrNull() ?: it.createdAt })
                     SortBy.Alphabetical -> list.sortedWith(compareByDescending<Hobby> { it.isPinned }
                         .thenBy { it.name.lowercase() })
+                    SortBy.Custom -> list.sortedWith(compareByDescending<Hobby> { it.isPinned }
+                        .thenBy { it.sortOrder })
                 }
             }
     }
@@ -138,6 +151,9 @@ fun HomeScreen(viewModel: HobbyViewModel) {
     LaunchedEffect(Unit) {
         viewModel.snackbarEvents.collectLatest { event ->
             scope.launch {
+                if (event.message.contains("unlocked")) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
                 val result = snackbarHostState.showSnackbar(
                     message = event.message,
                     actionLabel = event.action,
@@ -151,78 +167,116 @@ fun HomeScreen(viewModel: HobbyViewModel) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Donezy", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Plan it · Do it · Done it.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { showSortMenu = true }) {
-                            @Suppress("DEPRECATION")
-                            Icon(Icons.Default.Sort, contentDescription = "Sort")
+            if (selectedIds.isNotEmpty()) {
+                TopAppBar(
+                    title = { Text("${selectedIds.size} selected") },
+                    navigationIcon = {
+                        IconButton(onClick = { selectedIds.clear() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear selection")
                         }
-                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                            SortBy.entries.forEach { s ->
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            val selectedHobbies = hobbies.filter { it.id in selectedIds }
+                            viewModel.bulkTogglePin(selectedHobbies)
+                            selectedIds.clear()
+                        }) {
+                            Icon(Icons.Default.PushPin, contentDescription = "Toggle Pin")
+                        }
+                        IconButton(onClick = {
+                            viewModel.bulkArchive(selectedIds.toList())
+                            selectedIds.clear()
+                        }) {
+                            Icon(Icons.Default.Archive, contentDescription = "Archive Selected")
+                        }
+                        IconButton(onClick = {
+                            viewModel.bulkDelete(selectedIds.toList())
+                            selectedIds.clear()
+                        }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+            } else {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("Donezy", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                "Plan it · Do it · Done it.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    actions = {
+                        Box {
+                            IconButton(onClick = { showSortMenu = true }) {
+                                @Suppress("DEPRECATION")
+                                Icon(Icons.Default.Sort, contentDescription = "Sort")
+                            }
+                            DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                                SortBy.entries.forEach { s ->
+                                    DropdownMenuItem(
+                                        text = { Text(s.label) },
+                                        onClick = { sortBy = s; showSortMenu = false },
+                                        trailingIcon = {
+                                            if (s == sortBy) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        Box {
+                            IconButton(onClick = { showOverflow = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                            }
+                            DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(s.label) },
-                                    onClick = { sortBy = s; showSortMenu = false },
-                                    trailingIcon = {
-                                        if (s == sortBy) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    text = { Text("Settings") },
+                                    leadingIcon = { Icon(Icons.Default.Settings, null) },
+                                    onClick = { showOverflow = false; viewModel.openSettings() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Archive") },
+                                    leadingIcon = { Icon(Icons.Default.Archive, null) },
+                                    onClick = { showOverflow = false; viewModel.openArchive() }
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("Backup to file") },
+                                    leadingIcon = { Icon(Icons.Default.SaveAlt, null) },
+                                    onClick = {
+                                        showOverflow = false
+                                        backupLauncher.launch("hobbylog-backup-${System.currentTimeMillis()}.json")
                                     }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Restore from file") },
+                                    leadingIcon = { Icon(Icons.Default.Restore, null) },
+                                    onClick = {
+                                        showOverflow = false
+                                        viewModel.setShowRestoreConfirm(true)
+                                    }
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("About") },
+                                    leadingIcon = { Icon(Icons.Default.Info, null) },
+                                    onClick = { showOverflow = false; viewModel.openAbout() }
                                 )
                             }
                         }
-                    }
-                    Box {
-                        IconButton(onClick = { showOverflow = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
-                        }
-                        DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Settings") },
-                                leadingIcon = { Icon(Icons.Default.Settings, null) },
-                                onClick = { showOverflow = false; viewModel.openSettings() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Archive") },
-                                leadingIcon = { Icon(Icons.Default.Archive, null) },
-                                onClick = { showOverflow = false; viewModel.openArchive() }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Backup to file") },
-                                leadingIcon = { Icon(Icons.Default.SaveAlt, null) },
-                                onClick = {
-                                    showOverflow = false
-                                    backupLauncher.launch("hobbylog-backup-${System.currentTimeMillis()}.json")
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Restore from file") },
-                                leadingIcon = { Icon(Icons.Default.Restore, null) },
-                                onClick = {
-                                    showOverflow = false
-                                    restoreLauncher.launch(arrayOf("application/json", "*/*"))
-                                }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("About") },
-                                leadingIcon = { Icon(Icons.Default.Info, null) },
-                                onClick = { showOverflow = false; viewModel.openAbout() }
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+            }
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -235,100 +289,186 @@ fun HomeScreen(viewModel: HobbyViewModel) {
             )
         }
     ) { padding ->
+        var isRefreshing by remember { mutableStateOf(false) }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                DashboardHero(
-                    total = hobbies.size,
-                    dueSoon = dueSoon,
-                    scheduled = scheduled,
-                    longestStreak = longestStreak,
-                    activeStreaks = activeStreaks,
-                    selected = heroFilter,
-                    onSelect = { tapped ->
-                        // Tap again to clear the filter.
-                        heroFilter = if (heroFilter == tapped) HeroFilter.All else tapped
-                    }
-                )
-            }
-
-            if (hobbies.isEmpty()) {
-                item {
-                    TemplateDeck(onApply = { template ->
-                        prefillTemplate = template
-                        showCreateSheet = true
-                    })
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                scope.launch {
+                    viewModel.refresh().join()
+                    isRefreshing = false
                 }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionHeader("Trackers", subtitle = "${filteredHobbies.size} shown")
-                    CategoryFilterRow(
-                        labels = filterLabels,
-                        selected = selectedFilter,
-                        onSelected = { selectedFilter = it }
+            },
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    DashboardHero(
+                        total = hobbies.size,
+                        dueSoon = dueSoon,
+                        scheduled = scheduled,
+                        longestStreak = longestStreak,
+                        activeStreaks = activeStreaks,
+                        selected = heroFilter,
+                        onSelect = { tapped ->
+                            // Tap again to clear the filter.
+                            heroFilter = if (heroFilter == tapped) HeroFilter.All else tapped
+                        }
                     )
-                    AnimatedVisibility(visible = hobbies.isNotEmpty()) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            label = { Text("Search trackers and logs") },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                }
+
+                if (hobbies.isEmpty()) {
+                    item {
+                        TemplateDeck(onApply = { template ->
+                            prefillTemplate = template
+                            showCreateSheet = true
+                        })
+                    }
+                }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SectionHeader("Trackers", subtitle = "${filteredHobbies.size} shown")
+                        CategoryFilterRow(
+                            labels = filterLabels,
+                            selected = selectedFilter,
+                            onSelected = { selectedFilter = it }
+                        )
+                        AnimatedVisibility(visible = hobbies.isNotEmpty()) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                label = { Text("Search logs or trackers") },
+                                leadingIcon = { Icon(Icons.Default.Search, null) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(Icons.Default.Clear, "Clear search")
+                                        }
                                     }
-                                }
-                            },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large
+                                },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large
+                            )
+                        }
+                    }
+                }
+
+                // Log search results section (only when there's a query and any matches)
+                if (searchQuery.isNotBlank() && logSearchResults.isNotEmpty()) {
+                    item {
+                        SectionHeader("Log entries matching \"$logSearchQuery\"", subtitle = "${logSearchResults.size} found")
+                    }
+                    items(logSearchResults, key = { "log-${it.log.id}" }) { hit ->
+                        LogSearchHitCard(
+                            hit = hit,
+                            onClick = { viewModel.openDetail(hit.log.hobbyId) }
                         )
                     }
+                    item { Spacer(Modifier.height(4.dp)) }
                 }
-            }
 
-            // Log search results section (only when there's a query and any matches)
-            if (searchQuery.isNotBlank() && logSearchResults.isNotEmpty()) {
-                item {
-                    SectionHeader("Log entries matching \"$logSearchQuery\"", subtitle = "${logSearchResults.size} found")
+                if (filteredHobbies.isEmpty()) {
+                    item {
+                        EmptyTrackerState(hasTrackers = hobbies.isNotEmpty(), onClear = {
+                            selectedFilter = "All"; searchQuery = ""
+                        })
+                    }
                 }
-                items(logSearchResults, key = { "log-${it.log.id}" }) { hit ->
-                    LogSearchHitCard(
-                        hit = hit,
-                        onClick = { viewModel.openDetail(hit.log.hobbyId) }
-                    )
-                }
-                item { Spacer(Modifier.height(4.dp)) }
-            }
 
-            if (filteredHobbies.isEmpty()) {
-                item {
-                    EmptyTrackerState(hasTrackers = hobbies.isNotEmpty(), onClear = {
-                        selectedFilter = "All"; searchQuery = ""
-                    })
-                }
-            }
+                items(filteredHobbies, key = { it.id }) { hobby ->
+                    val isSelected = selectedIds.contains(hobby.id)
+                    val isInSelectionMode = selectedIds.isNotEmpty()
 
-            items(filteredHobbies, key = { it.id }) { hobby ->
-                SwipeToConfirmRow(
-                    modifier = Modifier.animateItem(),
-                    onArchive = { scope.launch { viewModel.archiveHobby(hobby.id, hobby.name) } },
-                    onDelete = { scope.launch { viewModel.deleteHobby(hobby.id, hobby.name) } }
-                ) {
-                    TrackerCard(
-                        hobby = hobby,
-                        streak = streakByHobby[hobby.id] ?: 0,
-                        now = now,
-                        onClick = { viewModel.openDetail(hobby.id) },
-                        onPin = { viewModel.togglePin(hobby) }
-                    )
+                    val density = LocalDensity.current
+                    val thresholdPx = with(density) { 80.dp.toPx() }
+                    var accumulatedDrag by remember { mutableStateOf(0f) }
+                    val dragHandleModifier = if (sortBy == SortBy.Custom && !isInSelectionMode) {
+                        Modifier.pointerInput(hobby.id) {
+                            detectDragGestures(
+                                onDragStart = { accumulatedDrag = 0f },
+                                onDragEnd = { accumulatedDrag = 0f },
+                                onDragCancel = { accumulatedDrag = 0f },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    accumulatedDrag += dragAmount.y
+                                    val index = filteredHobbies.indexOf(hobby)
+                                    if (index != -1) {
+                                        if (accumulatedDrag < -thresholdPx) {
+                                            if (index > 0) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                val prevHobby = filteredHobbies[index - 1]
+                                                val currentOrder = hobby.sortOrder
+                                                val prevOrder = prevHobby.sortOrder
+                                                viewModel.reorderHobby(hobby.id, prevOrder)
+                                                viewModel.reorderHobby(prevHobby.id, currentOrder)
+                                                accumulatedDrag = 0f
+                                            }
+                                        } else if (accumulatedDrag > thresholdPx) {
+                                            if (index < filteredHobbies.size - 1) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                val nextHobby = filteredHobbies[index + 1]
+                                                val currentOrder = hobby.sortOrder
+                                                val nextOrder = nextHobby.sortOrder
+                                                viewModel.reorderHobby(hobby.id, nextOrder)
+                                                viewModel.reorderHobby(nextHobby.id, currentOrder)
+                                                accumulatedDrag = 0f
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    } else null
+
+                    SwipeToConfirmRow(
+                        modifier = Modifier.animateItem(),
+                        enabled = !isInSelectionMode,
+                        onArchive = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            scope.launch { viewModel.archiveHobby(hobby.id, hobby.name) }
+                        },
+                        onDelete = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            scope.launch { viewModel.deleteHobby(hobby.id, hobby.name) }
+                        }
+                    ) {
+                        TrackerCard(
+                            hobby = hobby,
+                            streak = streakByHobby[hobby.id] ?: 0,
+                            now = now,
+                            onClick = {
+                                if (isInSelectionMode) {
+                                    if (isSelected) {
+                                        selectedIds.remove(hobby.id)
+                                    } else {
+                                        selectedIds.add(hobby.id)
+                                    }
+                                } else {
+                                    viewModel.openDetail(hobby.id)
+                                }
+                            },
+                            onPin = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.togglePin(hobby)
+                            },
+                            onLongClick = {
+                                if (!isInSelectionMode) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    selectedIds.add(hobby.id)
+                                }
+                            },
+                            isSelected = isSelected,
+                            isInSelectionMode = isInSelectionMode,
+                            dragHandleModifier = dragHandleModifier
+                        )
+                    }
                 }
             }
         }
@@ -351,6 +491,30 @@ fun HomeScreen(viewModel: HobbyViewModel) {
                 prefillTemplate = null
             },
             prefill = prefillTemplate
+        )
+    }
+
+    if (showRestoreConfirm) {
+        AlertDialog(
+            onDismissRequest = { viewModel.setShowRestoreConfirm(false) },
+            title = { Text("Confirm Restore") },
+            text = { Text("Restoring from backup will overwrite all current trackers and log entries. Are you sure you want to proceed?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setShowRestoreConfirm(false)
+                        restoreLauncher.launch(arrayOf("application/json", "*/*"))
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.setShowRestoreConfirm(false) }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
@@ -499,28 +663,66 @@ private fun HeroMetric(
 
 // ─── Tracker Card ─────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TrackerCard(hobby: Hobby, streak: Int, now: Long, onClick: () -> Unit, onPin: () -> Unit) {
+fun TrackerCard(
+    hobby: Hobby,
+    streak: Int,
+    now: Long,
+    onClick: () -> Unit,
+    onPin: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    isSelected: Boolean = false,
+    isInSelectionMode: Boolean = false,
+    dragHandleModifier: Modifier? = null
+) {
     val category = categoryFor(hobby.category)
     val status   = reminderStatusInfo(hobby.nextReminderAt, now)
 
+    val cardBg = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    val borderModifier = if (isSelected) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)
+    } else Modifier
+
     ElevatedCard(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .then(borderModifier)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { onLongClick?.invoke() }
+            ),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.elevatedCardColors(containerColor = cardBg),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Row {
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(IntrinsicSize.Min)
-                    .background(
-                        Brush.verticalGradient(listOf(category.accent, category.accent.copy(alpha = 0.3f)))
-                    )
-            )
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isInSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { _ -> onClick() },
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.verticalGradient(listOf(category.accent, category.accent.copy(alpha = 0.3f)))
+                        )
+                )
+            }
+            Column(Modifier.padding(14.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -533,13 +735,24 @@ fun TrackerCard(hobby: Hobby, streak: Int, now: Long, onClick: () -> Unit, onPin
                             Icon(Icons.Default.PushPin, contentDescription = "Pinned",
                                 tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         }
-                        IconButton(onClick = onPin, modifier = Modifier.size(48.dp)) {
+                        if (dragHandleModifier != null) {
                             Icon(
-                                if (hobby.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                                contentDescription = "Pin",
+                                imageVector = Icons.Default.DragHandle,
+                                contentDescription = "Drag to reorder",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(18.dp)
+                                modifier = dragHandleModifier
+                                    .padding(8.dp)
+                                    .size(24.dp)
                             )
+                        } else {
+                            IconButton(onClick = onPin, modifier = Modifier.size(48.dp)) {
+                                Icon(
+                                    if (hobby.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                    contentDescription = "Pin",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -601,6 +814,7 @@ fun SwipeToConfirmRow(
     onArchive: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -620,9 +834,11 @@ fun SwipeToConfirmRow(
     }
 
     val draggable = rememberDraggableState { delta ->
-        scope.launch {
-            val next = (offsetX.value + delta).coerceIn(-revealPx, revealPx)
-            offsetX.snapTo(next)
+        if (enabled) {
+            scope.launch {
+                val next = (offsetX.value + delta).coerceIn(-revealPx, revealPx)
+                offsetX.snapTo(next)
+            }
         }
     }
 
@@ -671,20 +887,24 @@ fun SwipeToConfirmRow(
         }
 
         // Foreground: the card itself, slid by the drag offset.
+        val dragModifier = if (enabled) {
+            Modifier.draggable(
+                state = draggable,
+                orientation = Orientation.Horizontal,
+                onDragStopped = {
+                    when {
+                        offsetX.value <= -catchPx -> settleTo(-revealPx)  // hold Archive open
+                        offsetX.value >=  catchPx -> settleTo(revealPx)   // hold Delete open
+                        else                      -> settleTo(0f)         // spring back closed
+                    }
+                }
+            )
+        } else Modifier
+
         Box(
             modifier = Modifier
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .draggable(
-                    state = draggable,
-                    orientation = Orientation.Horizontal,
-                    onDragStopped = {
-                        when {
-                            offsetX.value <= -catchPx -> settleTo(-revealPx)  // hold Archive open
-                            offsetX.value >=  catchPx -> settleTo(revealPx)   // hold Delete open
-                            else                      -> settleTo(0f)         // spring back closed
-                        }
-                    }
-                )
+                .then(dragModifier)
         ) {
             content()
         }

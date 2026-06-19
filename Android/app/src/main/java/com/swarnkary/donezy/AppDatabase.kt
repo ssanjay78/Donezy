@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 class AppDatabase private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "hobby_log.db", null, 4) {
+    SQLiteOpenHelper(context.applicationContext, "hobby_log.db", null, 5) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -22,7 +22,8 @@ class AppDatabase private constructor(context: Context) :
                 reminder_interval_hours INTEGER NOT NULL DEFAULT 0,
                 recurrence_type         TEXT NOT NULL DEFAULT 'none',
                 recurrence_data         TEXT NOT NULL DEFAULT '',
-                weekly_goal             INTEGER NOT NULL DEFAULT 0
+                weekly_goal             INTEGER NOT NULL DEFAULT 0,
+                sort_order              INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -63,6 +64,9 @@ class AppDatabase private constructor(context: Context) :
         }
         if (oldVersion < 4) {
             db.execSQL("ALTER TABLE hobbies ADD COLUMN weekly_goal INTEGER NOT NULL DEFAULT 0")
+        }
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE hobbies ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
         }
     }
 

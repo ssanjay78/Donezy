@@ -10,11 +10,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -49,6 +53,7 @@ private const val STREAK_REQUEST_CODE  = 0x57Ea_C0DE
 private const val RC_OFFSET_DONE    = 0x10_0000
 private const val RC_OFFSET_SNOOZE  = 0x20_0000
 private const val RC_OFFSET_DISMISS = 0x30_0000
+private const val RC_OFFSET_SHOW    = 0x40_0000
 // Two-pulse, ~1.4s total — long enough to register, short enough not to annoy.
 private val VIBRATION_PATTERN = longArrayOf(0, 350, 250, 350, 200, 350)
 
@@ -57,7 +62,7 @@ private val VIBRATION_PATTERN = longArrayOf(0, 350, 250, 350, 200, 350)
  * sound/vibrate config is immutable) and forces a clean recreate. Bump this whenever
  * we materially change the channel definition (sound, vibration pattern, importance).
  */
-private const val CHANNEL_VERSION = "v3"
+private const val CHANNEL_VERSION = "v4"
 
 private fun reminderChannelId(sound: Boolean, vibrate: Boolean): String =
     "hobby_reminders_${CHANNEL_VERSION}_" +
@@ -81,15 +86,9 @@ fun ensureNotificationChannel(context: Context) {
             description = "Tracker reminders"
             enableVibration(vibrate)
             if (vibrate) vibrationPattern = VIBRATION_PATTERN
-            if (sound) {
-                val attrs = AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
-                    .build()
-                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), attrs)
-            } else {
-                setSound(null, null)
-            }
+            // Always set channel sound to null, because we will handle sound manually via MediaPlayer
+            // to support adjustable duration (1-30s) and custom local audio files.
+            setSound(null, null)
         }
         mgr.createNotificationChannel(channel)
     }
@@ -105,6 +104,26 @@ fun ensureNotificationChannel(context: Context) {
 // ─── Reminder alarm scheduling ────────────────────────────────────────────────
 
 fun scheduleReminder(context: Context, hobbyId: Long, hobbyName: String, triggerAt: Long) {
+    val diff = triggerAt - System.currentTimeMillis()
+    if (diff <= 65_000L) {
+        if (diff <= 0L) {
+            val intent = Intent(context, ReminderReceiver::class.java).apply {
+                putExtra(EXTRA_HOBBY_ID, hobbyId)
+                putExtra(EXTRA_HOBBY_NAME, hobbyName)
+            }
+            context.sendBroadcast(intent)
+        } else {
+            // Use handler for short delays up to 65 seconds to bypass exact alarm throttling entirely.
+            Handler(Looper.getMainLooper()).postDelayed({
+                val intent = Intent(context, ReminderReceiver::class.java).apply {
+                    putExtra(EXTRA_HOBBY_ID, hobbyId)
+                    putExtra(EXTRA_HOBBY_NAME, hobbyName)
+                }
+                context.sendBroadcast(intent)
+            }, diff)
+        }
+        return
+    }
     val intent = Intent(context, ReminderReceiver::class.java).apply {
         putExtra(EXTRA_HOBBY_ID, hobbyId)
         putExtra(EXTRA_HOBBY_NAME, hobbyName)
@@ -119,11 +138,28 @@ fun scheduleReminder(context: Context, hobbyId: Long, hobbyName: String, trigger
         if (canExact) {
             mgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         } else {
-            mgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            val showIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            val showPending = PendingIntent.getActivity(
+                context, hobbyId.toInt() + RC_OFFSET_SHOW, showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            mgr.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPending), pending)
         }
     } catch (_: SecurityException) {
-        // Some OEMs revoke SCHEDULE_EXACT_ALARM dynamically. Fall back to inexact rather than crash.
-        mgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        val showIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val showPending = PendingIntent.getActivity(
+            context, hobbyId.toInt() + RC_OFFSET_SHOW, showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        try {
+            mgr.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPending), pending)
+        } catch (_: Exception) {
+            mgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        }
     }
 }
 
@@ -178,6 +214,11 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         ensureNotificationChannel(context)
 
+        // Stop custom sound playback on any user action
+        if (intent.action != null) {
+            NotificationSoundPlayer.stop()
+        }
+
         val hobbyId   = intent.getLongExtra(EXTRA_HOBBY_ID, 0L)
         val hobbyName = intent.getStringExtra(EXTRA_HOBBY_NAME).orEmpty().ifBlank { "your hobby" }
 
@@ -207,6 +248,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     repository.updateReminderSync(hobbyId, null)
                 }
                 NextDueWidgetProvider.refreshAll(context)
+                StreakWidgetProvider.refreshAll(context)
             } finally {
                 pendingResult.finish()
             }
@@ -232,6 +274,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     }
                 }
                 NextDueWidgetProvider.refreshAll(context)
+                StreakWidgetProvider.refreshAll(context)
             } finally {
                 pendingResult.finish()
             }
@@ -249,6 +292,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 repo.updateReminderSync(hobbyId, snoozeAt)
                 scheduleReminder(context, hobbyId, name, snoozeAt)
                 NextDueWidgetProvider.refreshAll(context)
+                StreakWidgetProvider.refreshAll(context)
             } finally {
                 pendingResult.finish()
             }
@@ -330,6 +374,13 @@ class ReminderReceiver : BroadcastReceiver() {
 
         // minSdk = 26 means channel settings always apply, no pre-O builder fallback.
         NotificationManagerCompat.from(context).notify(hobbyId.toInt(), builder.build())
+
+        if (sound) {
+            val customSound = settings.customSoundUri.value
+            val duration = settings.playbackDurationSeconds.value
+            val soundUri = if (customSound != null) Uri.parse(customSound) else null
+            NotificationSoundPlayer.play(context, soundUri, duration)
+        }
     }
 }
 
@@ -359,6 +410,7 @@ class BootReceiver : BroadcastReceiver() {
                     StreakRescueScheduler.scheduleNext(context)
                 }
                 NextDueWidgetProvider.refreshAll(context)
+                StreakWidgetProvider.refreshAll(context)
             } finally {
                 pendingResult.finish()
             }
@@ -383,8 +435,35 @@ object StreakRescueScheduler {
             context, STREAK_REQUEST_CODE, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        context.getSystemService(AlarmManager::class.java)
-            .setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        val mgr = context.getSystemService(AlarmManager::class.java)
+        val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) mgr.canScheduleExactAlarms() else true
+        try {
+            if (canExact) {
+                mgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            } else {
+                val showIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                val showPending = PendingIntent.getActivity(
+                    context, STREAK_REQUEST_CODE + RC_OFFSET_SHOW, showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                mgr.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPending), pending)
+            }
+        } catch (_: SecurityException) {
+            val showIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            val showPending = PendingIntent.getActivity(
+                context, STREAK_REQUEST_CODE + RC_OFFSET_SHOW, showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            try {
+                mgr.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPending), pending)
+            } catch (_: Exception) {
+                mgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            }
+        }
     }
 
     fun cancel(context: Context) {
@@ -406,18 +485,7 @@ class StreakRescueReceiver : BroadcastReceiver() {
                 val settings = ServiceLocator.settingsPreferences(context)
                 if (hasNotificationPermission(context) && settings.streakRescueEnabled.value) {
                     val repo = ServiceLocator.repository(context)
-                    val today = LocalDate.now()
-                    val candidates = repo.allHobbiesSync()
-                        .filter { !it.isArchived }
-                        .mapNotNull { hobby ->
-                            val logs = repo.detail(hobby.id)?.logs ?: return@mapNotNull null
-                            val streak = HobbyViewModel.computeStreak(logs)
-                            val loggedToday = logs.any {
-                                java.time.Instant.ofEpochMilli(it.createdAt)
-                                    .atZone(ZoneId.systemDefault()).toLocalDate() == today
-                            }
-                            if (streak >= 2 && !loggedToday) hobby to streak else null
-                        }
+                    val candidates = repo.streakCandidatesSync(2)
                     if (candidates.isNotEmpty()) {
                         val sample = candidates.maxBy { it.second }
                         showStreakRescue(context, sample.first, sample.second, candidates.size)
@@ -536,4 +604,52 @@ fun launcherIconBitmap(context: Context): Bitmap? {
     drawable.draw(canvas)
     cachedLauncherBitmap = bitmap
     return bitmap
+}
+
+object NotificationSoundPlayer {
+    private var mediaPlayer: MediaPlayer? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val stopRunnable = Runnable { stop() }
+
+    fun play(context: Context, soundUri: Uri?, durationSeconds: Int) {
+        stop()
+        try {
+            val uri = soundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION) ?: return
+            mediaPlayer = MediaPlayer().apply {
+                if (uri.scheme == "file") {
+                    setDataSource(uri.path)
+                } else {
+                    setDataSource(context, uri)
+                }
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                        .build()
+                )
+                isLooping = true
+                prepare()
+                start()
+            }
+            handler.postDelayed(stopRunnable, durationSeconds * 1000L)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun stop() {
+        handler.removeCallbacks(stopRunnable)
+        try {
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            mediaPlayer = null
+        }
+    }
 }

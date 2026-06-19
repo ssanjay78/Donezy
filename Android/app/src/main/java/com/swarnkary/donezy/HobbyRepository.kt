@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
 
 /**
  * Public API surface, in order:
@@ -39,26 +41,35 @@ class HobbyRepository(private val db: AppDatabase) {
      * in O(D) per tracker without a query-per-hobby. SQLite's strftime handles the
      * UTC→local conversion via the device's offset.
      */
+    /**
+     * Returns one row per (hobby, local day). The local-day conversion is done in
+     * Java via ZoneId.systemDefault() (DST-aware) rather than SQLite's 'localtime'
+     * modifier (static UTC offset) so streaks don't break on DST boundary days.
+     */
     private fun queryLogDays(): Map<Long, List<Long>> {
-        val map = HashMap<Long, MutableList<Long>>()
+        val zone = ZoneId.systemDefault()
+        val map = HashMap<Long, MutableSet<Long>>()
         db.readableDatabase.rawQuery(
-            """
-            SELECT hobby_id,
-                   CAST(strftime('%s', created_at / 1000, 'unixepoch', 'localtime', 'start of day') AS INTEGER) * 1000 AS day_ms
-            FROM logs
-            GROUP BY hobby_id, day_ms
-            ORDER BY hobby_id ASC, day_ms DESC
-            """.trimIndent(),
+            "SELECT hobby_id, created_at FROM logs ORDER BY hobby_id ASC, created_at DESC",
             null
         ).use { c ->
             while (c.moveToNext()) {
                 val hid = c.getLong(0)
-                val day = c.getLong(1)
-                map.getOrPut(hid) { mutableListOf() }.add(day)
+                val createdAt = c.getLong(1)
+                val dayMs = Instant.ofEpochMilli(createdAt)
+                    .atZone(zone)
+                    .toLocalDate()
+                    .atStartOfDay(zone)
+                    .toInstant()
+                    .toEpochMilli()
+                map.getOrPut(hid) { mutableLinkedSetOf() }.add(dayMs)
             }
         }
-        return map
+        // Convert sets to sorted-descending lists (same contract as before)
+        return map.mapValues { (_, days) -> days.sortedDescending() }
     }
+
+    private fun <T> mutableLinkedSetOf(): MutableSet<T> = LinkedHashSet()
 
     // ── Hobby queries ─────────────────────────────────────────────────────────
 
@@ -67,7 +78,7 @@ class HobbyRepository(private val db: AppDatabase) {
             """
             SELECT id, name, category, notes, next_reminder_at,
                    created_at, is_pinned, is_archived, reminder_interval_hours,
-                   recurrence_type, recurrence_data, weekly_goal
+                   recurrence_type, recurrence_data, weekly_goal, sort_order
             FROM hobbies
             WHERE is_archived = ?
             ORDER BY is_pinned DESC, next_reminder_at IS NULL, next_reminder_at ASC
@@ -90,7 +101,8 @@ class HobbyRepository(private val db: AppDatabase) {
         isArchived            = getInt(7) != 0,
         reminderIntervalHours = getLong(8),
         recurrence            = Recurrence.decode(getString(9), getString(10)),
-        weeklyGoal            = getInt(11)
+        weeklyGoal            = getInt(11),
+        sortOrder             = getInt(12)
     )
 
     suspend fun addHobby(
@@ -236,7 +248,9 @@ class HobbyRepository(private val db: AppDatabase) {
                 if (rating == null) putNull("rating") else put("rating", rating)
                 if (photoUri == null) putNull("photo_uri") else put("photo_uri", photoUri)
             }
-            db.writableDatabase.insert("logs", null, values)
+            val id = db.writableDatabase.insert("logs", null, values)
+            refreshSync()
+            id
         }
 
     suspend fun insertLog(log: HobbyLog): Long = withContext(Dispatchers.IO) {
@@ -252,6 +266,7 @@ class HobbyRepository(private val db: AppDatabase) {
 
     suspend fun deleteLog(id: Long) = withContext(Dispatchers.IO) {
         db.writableDatabase.delete("logs", "id = ?", arrayOf(id.toString()))
+        refreshSync()
     }
 
     suspend fun fetchLog(id: Long): HobbyLog? = withContext(Dispatchers.IO) {
@@ -275,7 +290,7 @@ class HobbyRepository(private val db: AppDatabase) {
         val hobby = db.readableDatabase.rawQuery(
             """SELECT id, name, category, notes, next_reminder_at,
                       created_at, is_pinned, is_archived, reminder_interval_hours,
-                      recurrence_type, recurrence_data, weekly_goal
+                      recurrence_type, recurrence_data, weekly_goal, sort_order
                FROM hobbies WHERE id = ?""",
             arrayOf(hobbyId.toString())
         ).use { c ->
@@ -346,7 +361,7 @@ class HobbyRepository(private val db: AppDatabase) {
         db.readableDatabase.rawQuery(
             """SELECT id, name, category, notes, next_reminder_at,
                       created_at, is_pinned, is_archived, reminder_interval_hours,
-                      recurrence_type, recurrence_data, weekly_goal
+                      recurrence_type, recurrence_data, weekly_goal, sort_order
                FROM hobbies WHERE id = ?""",
             arrayOf(hobbyId.toString())
         ).use { c -> if (c.moveToFirst()) c.toHobby() else null }
@@ -355,7 +370,7 @@ class HobbyRepository(private val db: AppDatabase) {
         db.readableDatabase.rawQuery(
             """SELECT id, name, category, notes, next_reminder_at,
                       created_at, is_pinned, is_archived, reminder_interval_hours,
-                      recurrence_type, recurrence_data, weekly_goal
+                      recurrence_type, recurrence_data, weekly_goal, sort_order
                FROM hobbies
                WHERE is_archived = 0 AND next_reminder_at IS NOT NULL""".trimIndent(),
             null
@@ -365,7 +380,7 @@ class HobbyRepository(private val db: AppDatabase) {
         db.readableDatabase.rawQuery(
             """SELECT id, name, category, notes, next_reminder_at,
                       created_at, is_pinned, is_archived, reminder_interval_hours,
-                      recurrence_type, recurrence_data, weekly_goal
+                      recurrence_type, recurrence_data, weekly_goal, sort_order
                FROM hobbies
                WHERE is_archived = 0
                ORDER BY is_pinned DESC, next_reminder_at IS NULL, next_reminder_at ASC
@@ -388,7 +403,9 @@ class HobbyRepository(private val db: AppDatabase) {
             put("entry", entry.trim())
             put("created_at", System.currentTimeMillis())
         }
-        return db.writableDatabase.insert("logs", null, values)
+        val id = db.writableDatabase.insert("logs", null, values)
+        refreshSync()
+        return id
     }
 
     /** Bulk reads used by Backup. */
@@ -397,7 +414,7 @@ class HobbyRepository(private val db: AppDatabase) {
         db.readableDatabase.rawQuery(
             """SELECT id, name, category, notes, next_reminder_at,
                       created_at, is_pinned, is_archived, reminder_interval_hours,
-                      recurrence_type, recurrence_data, weekly_goal
+                      recurrence_type, recurrence_data, weekly_goal, sort_order
                FROM hobbies""", null
         ).use { c -> while (c.moveToNext()) list += c.toHobby() }
         return list
@@ -460,6 +477,72 @@ class HobbyRepository(private val db: AppDatabase) {
             w.endTransaction()
         }
         refreshSync()
+    }
+
+    // ── Log editing ───────────────────────────────────────────────────────────
+
+    suspend fun updateLog(id: Long, entry: String, rating: Int?, photoUri: String?) =
+        withContext(Dispatchers.IO) {
+            val values = ContentValues().apply {
+                put("entry", entry.trim())
+                if (rating == null) putNull("rating") else put("rating", rating)
+                if (photoUri == null) putNull("photo_uri") else put("photo_uri", photoUri)
+            }
+            db.writableDatabase.update("logs", values, "id = ?", arrayOf(id.toString()))
+            refreshSync()
+        }
+
+    // ── Sort order ────────────────────────────────────────────────────────────
+
+    suspend fun updateSortOrder(id: Long, order: Int) = withContext(Dispatchers.IO) {
+        val values = ContentValues().apply { put("sort_order", order) }
+        db.writableDatabase.update("hobbies", values, "id = ?", arrayOf(id.toString()))
+        refreshSync()
+    }
+
+    // ── Date-range log search ─────────────────────────────────────────────────
+
+    suspend fun searchLogsByDateRange(
+        hobbyId: Long, fromMs: Long, toMs: Long
+    ): List<HobbyLog> = withContext(Dispatchers.IO) {
+        db.readableDatabase.rawQuery(
+            """SELECT id, hobby_id, entry, created_at, rating, photo_uri
+               FROM logs
+               WHERE hobby_id = ? AND created_at >= ? AND created_at <= ?
+               ORDER BY created_at DESC""",
+            arrayOf(hobbyId.toString(), fromMs.toString(), toMs.toString())
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) add(
+                    HobbyLog(
+                        id = c.getLong(0),
+                        hobbyId = c.getLong(1),
+                        entry = c.getString(2),
+                        createdAt = c.getLong(3),
+                        rating = if (c.isNull(4)) null else c.getInt(4),
+                        photoUri = if (c.isNull(5)) null else c.getString(5)
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * Efficient streak-rescue check: returns (hobby, streak) pairs for active
+     * hobbies with streaks >= [minStreak] that haven't been logged today.
+     * Uses precomputed logDaysByHobby to avoid per-hobby full-log queries.
+     */
+    fun streakCandidatesSync(minStreak: Int = 2): List<Pair<Hobby, Int>> {
+        val zone = ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        val todayMs = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val logDays = queryLogDays()
+        return queryHobbies(archived = false).mapNotNull { hobby ->
+            val days = logDays[hobby.id] ?: return@mapNotNull null
+            val streak = HobbyViewModel.computeStreakFromDays(days)
+            val loggedToday = days.any { it == todayMs }
+            if (streak >= minStreak && !loggedToday) hobby to streak else null
+        }
     }
 }
 

@@ -15,7 +15,7 @@ final class AppDatabase {
     /// assume they outlive the call — required when binding Swift String bytes.
     static let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-    private static let dbVersion: Int32 = 4
+    private static let dbVersion: Int32 = 5
 
     private(set) var handle: OpaquePointer?
 
@@ -76,7 +76,8 @@ final class AppDatabase {
                 reminder_interval_hours INTEGER NOT NULL DEFAULT 0,
                 recurrence_type         TEXT NOT NULL DEFAULT 'none',
                 recurrence_data         TEXT NOT NULL DEFAULT '',
-                weekly_goal             INTEGER NOT NULL DEFAULT 0
+                weekly_goal             INTEGER NOT NULL DEFAULT 0,
+                sort_order              INTEGER NOT NULL DEFAULT 0
             )
             """)
         exec("""
@@ -114,6 +115,9 @@ final class AppDatabase {
         }
         if oldVersion < 4 {
             exec("ALTER TABLE hobbies ADD COLUMN weekly_goal INTEGER NOT NULL DEFAULT 0")
+        }
+        if oldVersion < 5 {
+            exec("ALTER TABLE hobbies ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
         }
     }
 

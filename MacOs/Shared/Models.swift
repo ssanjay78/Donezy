@@ -64,6 +64,7 @@ struct Hobby: Identifiable, Equatable {
     var reminderIntervalHours: Int64 = 0   // legacy; mirrors recurrence when .hourly
     var recurrence: Recurrence = .none
     var weeklyGoal: Int = 0                 // 0 = no goal
+    var sortOrder: Int = 0
 }
 
 struct HobbyLog: Identifiable, Equatable {

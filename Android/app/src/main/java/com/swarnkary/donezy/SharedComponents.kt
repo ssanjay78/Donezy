@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,7 +34,9 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun CategoryBadge(category: CategoryOption, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.semantics {
+            contentDescription = "Category: ${category.label}"
+        },
         shape = RoundedCornerShape(999.dp),
         color = category.accent.copy(alpha = 0.15f)
     ) {
@@ -68,7 +72,10 @@ fun CategoryAvatar(category: CategoryOption, size: Int = 52) {
                     )
                 )
             )
-            .border(1.dp, category.accent.copy(alpha = 0.25f), CircleShape),
+            .border(1.dp, category.accent.copy(alpha = 0.25f), CircleShape)
+            .semantics {
+                contentDescription = "${category.label} category avatar"
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(category.emoji, fontSize = (size * 0.42).sp)
@@ -198,7 +205,9 @@ fun StreakBadge(streak: Int, modifier: Modifier = Modifier) {
         else -> "$streak day streak"
     }
     Surface(
-        modifier = modifier,
+        modifier = modifier.semantics {
+            contentDescription = "Streak: $streak days"
+        },
         shape = RoundedCornerShape(999.dp),
         color = bg.copy(alpha = 0.18f)
     ) {

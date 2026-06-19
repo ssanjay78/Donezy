@@ -1,9 +1,14 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsScreen: View {
     @ObservedObject var viewModel: HobbyViewModel
     @Environment(\.theme) private var theme
     @State private var showThemeDialog = false
+    @State private var showSoundImporter = false
+    @State private var showRestoreImporter = false
+    @State private var showRestoreConfirm = false
+    @State private var restoreURL: URL?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -13,8 +18,60 @@ struct SettingsScreen: View {
                     sectionHeader("Notifications")
 
                     toggleRow(icon: "speaker.wave.2.fill", title: "Sound",
-                              subtitle: "Play the system notification sound when a reminder fires",
+                              subtitle: "Play notification sound when a reminder fires",
                               isOn: Binding(get: { viewModel.soundEnabled }, set: { viewModel.setSoundEnabled($0) }))
+                    
+                    if viewModel.soundEnabled {
+                        // Custom Sound Selection Row
+                        HStack(spacing: 12) {
+                            Image(systemName: "music.note").foregroundColor(theme.onSurfaceVariant)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Notification sound").font(.system(size: 14, weight: .semibold))
+                                Text(viewModel.customSoundUri ?? "Default system sound")
+                                    .font(.system(size: 12)).foregroundColor(theme.onSurfaceVariant)
+                            }
+                            Spacer()
+                            if viewModel.customSoundUri != nil {
+                                Button(action: {
+                                    NotificationSoundPlayer.shared.stop()
+                                    viewModel.setCustomSoundUri(nil)
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.trailing, 4)
+                            }
+                            Button("Browse") {
+                                NotificationSoundPlayer.shared.stop()
+                                showSoundImporter = true
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(theme.primary)
+                        }
+                        .padding(14)
+                        .background(theme.surfaceVariant.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
+                        
+                        // Playback Duration Slider Row
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "bell.fill").foregroundColor(theme.onSurfaceVariant)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Playback duration").font(.system(size: 14, weight: .semibold))
+                                    Text("Play notification sound for \(viewModel.playbackDurationSeconds) seconds")
+                                        .font(.system(size: 12)).foregroundColor(theme.onSurfaceVariant)
+                                }
+                            }
+                            Slider(value: Binding(get: { Double(viewModel.playbackDurationSeconds) },
+                                                 set: { viewModel.setPlaybackDurationSeconds(Int($0)) }),
+                                   in: 1...30, step: 1)
+                                .tint(theme.primary)
+                        }
+                        .padding(14)
+                        .background(theme.surfaceVariant.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
+                    }
+
                     toggleRow(icon: "iphone.radiowaves.left.and.right", title: "Vibrate",
                               subtitle: "Vibrate the phone when a reminder fires",
                               isOn: Binding(get: { viewModel.vibrateEnabled }, set: { viewModel.setVibrateEnabled($0) }))
@@ -43,11 +100,35 @@ struct SettingsScreen: View {
                 .padding(.horizontal, 16).padding(.vertical, 8)
             }
         }
+        .onDisappear {
+            NotificationSoundPlayer.shared.stop()
+        }
         .confirmationDialog("Theme", isPresented: $showThemeDialog, titleVisibility: .visible) {
             ForEach(ThemeMode.allCases) { mode in
                 Button(mode.label) { viewModel.setThemeMode(mode) }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .fileImporter(isPresented: $showSoundImporter, allowedContentTypes: [.audio]) { result in
+            if case .success(let url) = result {
+                importSound(at: url)
+            }
+        }
+        .fileImporter(isPresented: $showRestoreImporter, allowedContentTypes: [.json, .data]) { result in
+            if case .success(let url) = result {
+                restoreURL = url
+                showRestoreConfirm = true
+            }
+        }
+        .alert("Confirm Restore", isPresented: $showRestoreConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Restore", role: .destructive) {
+                if let url = restoreURL {
+                    viewModel.restoreFrom(url: url)
+                }
+            }
+        } message: {
+            Text("Restoring from backup will overwrite all current trackers and log entries. Are you sure you want to proceed?")
         }
     }
 
@@ -85,20 +166,30 @@ struct SettingsScreen: View {
         }
         .buttonStyle(.plain)
     }
-}
 
-/// Shared back-button top bar for the secondary screens.
-struct ScreenTopBar: View {
-    let title: String
-    let onBack: () -> Void
-    @Environment(\.theme) private var theme
-    var body: some View {
-        HStack(spacing: 8) {
-            Button(action: onBack) { Image(systemName: "chevron.left").font(.system(size: 18)) }
-            Text(title).font(.system(size: 22, weight: .semibold))
-            Spacer()
+    private func importSound(at url: URL) {
+        let gotScope = url.startAccessingSecurityScopedResource()
+        defer { if gotScope { url.stopAccessingSecurityScopedResource() } }
+        
+        do {
+            let fileManager = FileManager.default
+            let libraryDir = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first!
+            let soundsDir = libraryDir.appendingPathComponent("Sounds", isDirectory: true)
+            try fileManager.createDirectory(at: soundsDir, withIntermediateDirectories: true)
+            
+            let filename = url.lastPathComponent
+            let targetURL = soundsDir.appendingPathComponent(filename)
+            
+            if fileManager.fileExists(atPath: targetURL.path) {
+                try fileManager.removeItem(at: targetURL)
+            }
+            
+            try fileManager.copyItem(at: url, to: targetURL)
+            viewModel.setCustomSoundUri(filename)
+            
+            NotificationSoundPlayer.shared.play(soundName: filename, durationSeconds: viewModel.playbackDurationSeconds)
+        } catch {
+            print("Failed to import sound: \(error.localizedDescription)")
         }
-        .foregroundColor(theme.onSurface)
-        .padding(.horizontal, 12).padding(.vertical, 10)
     }
 }

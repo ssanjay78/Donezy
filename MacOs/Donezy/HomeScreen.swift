@@ -17,6 +17,11 @@ struct HomeScreen: View {
 
     @State private var showBackupExporter = false
     @State private var showRestoreImporter = false
+    
+    // Selection state for bulk operations
+    @State private var selectedIds: Set<Int64> = []
+    
+    private var isInSelectionMode: Bool { !selectedIds.isEmpty }
 
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -32,55 +37,171 @@ struct HomeScreen: View {
         let filtered = filteredHobbies(hobbies, midnightTonight: midnightTonight, streakByHobby: streakByHobby)
 
         VStack(spacing: 0) {
-            topBar
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    DashboardHero(total: hobbies.count, dueSoon: dueSoon, scheduled: scheduled,
-                                  longestStreak: longestStreak, activeStreaks: activeStreaks,
-                                  selected: heroFilter,
-                                  onSelect: { tapped in heroFilter = heroFilter == tapped ? .all : tapped })
-
-                    if hobbies.isEmpty {
-                        TemplateDeck { template in prefillTemplate = template; showCreateSheet = true }
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionHeader(title: "Trackers", subtitle: "\(filtered.count) shown")
-                        CategoryFilterRow(labels: filterLabels, selected: selectedFilter) { selectedFilter = $0 }
-                        if !hobbies.isEmpty {
-                            searchField
+            if isInSelectionMode {
+                selectionTopBar
+            } else {
+                topBar
+            }
+            
+            if sortBy == .custom {
+                // Native List with reorder handles for Custom Sort parity
+                List {
+                    Section {
+                        DashboardHero(total: hobbies.count, dueSoon: dueSoon, scheduled: scheduled,
+                                      longestStreak: longestStreak, activeStreaks: activeStreaks,
+                                      selected: heroFilter,
+                                      onSelect: { tapped in heroFilter = heroFilter == tapped ? .all : tapped })
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .padding(.vertical, 8)
+                        
+                        if hobbies.isEmpty {
+                            TemplateDeck { template in prefillTemplate = template; showCreateSheet = true }
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
-                    }
-
-                    // Log search results
-                    if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty && !viewModel.logSearchResults.isEmpty {
-                        SectionHeader(title: "Log entries matching \"\(viewModel.logSearchQuery)\"",
-                                      subtitle: "\(viewModel.logSearchResults.count) found")
-                        ForEach(viewModel.logSearchResults) { hit in
-                            LogSearchHitCard(hit: hit) { viewModel.openDetail(hit.log.hobbyId) }
+                        
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionHeader(title: "Trackers", subtitle: "\(filtered.count) shown")
+                            CategoryFilterRow(labels: filterLabels, selected: selectedFilter) { selectedFilter = $0 }
+                            if !hobbies.isEmpty {
+                                searchField
+                            }
                         }
-                    }
-
-                    if filtered.isEmpty {
-                        EmptyTrackerState(hasTrackers: !hobbies.isEmpty) {
-                            selectedFilter = "All"; searchQuery = ""
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .padding(.vertical, 8)
+                        
+                        // Log search results
+                        if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty && !viewModel.logSearchResults.isEmpty {
+                            SectionHeader(title: "Log entries matching \"\(viewModel.logSearchQuery)\"",
+                                          subtitle: "\(viewModel.logSearchResults.count) found")
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            
+                            ForEach(viewModel.logSearchResults) { hit in
+                                LogSearchHitCard(hit: hit) { viewModel.openDetail(hit.log.hobbyId) }
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(Color.clear)
+                            }
                         }
-                    }
-
-                    ForEach(filtered) { hobby in
-                        SwipeToConfirmRow(
-                            onArchive: { viewModel.archiveHobby(id: hobby.id, name: hobby.name) },
-                            onDelete: { viewModel.deleteHobby(id: hobby.id, name: hobby.name) }
-                        ) {
-                            TrackerCard(hobby: hobby, streak: streakByHobby[hobby.id] ?? 0, now: now,
-                                        onTap: { viewModel.openDetail(hobby.id) },
-                                        onPin: { viewModel.togglePin(hobby) })
+                        
+                        if filtered.isEmpty {
+                            EmptyTrackerState(hasTrackers: !hobbies.isEmpty) {
+                                selectedFilter = "All"; searchQuery = ""
+                            }
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        }
+                        
+                        ForEach(filtered) { hobby in
+                            TrackerCard(hobby: hobby,
+                                        streak: streakByHobby[hobby.id] ?? 0,
+                                        now: now,
+                                        isSelected: selectedIds.contains(hobby.id),
+                                        isInSelectionMode: isInSelectionMode,
+                                        onTap: {
+                                            if isInSelectionMode {
+                                                toggleSelection(hobby.id)
+                                            } else {
+                                                viewModel.openDetail(hobby.id)
+                                            }
+                                        },
+                                        onPin: { viewModel.togglePin(hobby) },
+                                        onLongPress: {
+                                            if !isInSelectionMode {
+                                                toggleSelection(hobby.id)
+                                            }
+                                        })
+                            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        }
+                        .onMove { source, destination in
+                            moveHobbies(from: source, to: destination, list: filtered)
                         }
                     }
                 }
+                .listStyle(.plain)
+                .environment(\.editMode, .constant(.active)) // Shows drag handles
+                .refreshable {
+                    viewModel.goHome()
+                }
                 .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 120)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        DashboardHero(total: hobbies.count, dueSoon: dueSoon, scheduled: scheduled,
+                                      longestStreak: longestStreak, activeStreaks: activeStreaks,
+                                      selected: heroFilter,
+                                      onSelect: { tapped in heroFilter = heroFilter == tapped ? .all : tapped })
+
+                        if hobbies.isEmpty {
+                            TemplateDeck { template in prefillTemplate = template; showCreateSheet = true }
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionHeader(title: "Trackers", subtitle: "\(filtered.count) shown")
+                            CategoryFilterRow(labels: filterLabels, selected: selectedFilter) { selectedFilter = $0 }
+                            if !hobbies.isEmpty {
+                                searchField
+                            }
+                        }
+
+                        // Log search results
+                        if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty && !viewModel.logSearchResults.isEmpty {
+                            SectionHeader(title: "Log entries matching \"\(viewModel.logSearchQuery)\"",
+                                          subtitle: "\(viewModel.logSearchResults.count) found")
+                            ForEach(viewModel.logSearchResults) { hit in
+                                LogSearchHitCard(hit: hit) { viewModel.openDetail(hit.log.hobbyId) }
+                            }
+                        }
+
+                        if filtered.isEmpty {
+                            EmptyTrackerState(hasTrackers: !hobbies.isEmpty) {
+                                selectedFilter = "All"; searchQuery = ""
+                            }
+                        }
+
+                        ForEach(filtered) { hobby in
+                            SwipeToConfirmRow(
+                                onArchive: { viewModel.archiveHobby(id: hobby.id, name: hobby.name) },
+                                onDelete: { viewModel.deleteHobby(id: hobby.id, name: hobby.name) }
+                            ) {
+                                TrackerCard(hobby: hobby,
+                                            streak: streakByHobby[hobby.id] ?? 0,
+                                            now: now,
+                                            isSelected: selectedIds.contains(hobby.id),
+                                            isInSelectionMode: isInSelectionMode,
+                                            onTap: {
+                                                if isInSelectionMode {
+                                                    toggleSelection(hobby.id)
+                                                } else {
+                                                    viewModel.openDetail(hobby.id)
+                                                }
+                                            },
+                                            onPin: { viewModel.togglePin(hobby) },
+                                            onLongPress: {
+                                                if !isInSelectionMode {
+                                                    toggleSelection(hobby.id)
+                                                }
+                                            })
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 120)
+                }
+                .refreshable {
+                    viewModel.goHome()
+                }
             }
         }
         .overlay(alignment: .bottomTrailing) {
@@ -117,6 +238,52 @@ struct HomeScreen: View {
         .fileImporter(isPresented: $showRestoreImporter, allowedContentTypes: [.json, .data]) { result in
             if case .success(let url) = result { viewModel.restoreFrom(url: url) }
         }
+    }
+
+    // ── Selection top bar ──────────────────────────────────────────────────────
+    
+    private var selectionTopBar: some View {
+        HStack {
+            Button(action: { selectedIds.removeAll() }) {
+                Image(systemName: "xmark").font(.system(size: 18))
+            }
+            Text("\(selectedIds.count) selected").font(.system(size: 18, weight: .semibold))
+            Spacer()
+            
+            Button(action: {
+                let selectedHobbies = viewModel.hobbies.filter { selectedIds.contains($0.id) }
+                for h in selectedHobbies {
+                    viewModel.togglePin(h)
+                }
+                selectedIds.removeAll()
+            }) {
+                Image(systemName: "pin").font(.system(size: 18))
+            }
+            .padding(.horizontal, 8)
+            
+            Button(action: {
+                for id in selectedIds {
+                    viewModel.archiveHobby(id: id, name: "")
+                }
+                selectedIds.removeAll()
+            }) {
+                Image(systemName: "archivebox").font(.system(size: 18))
+            }
+            .padding(.horizontal, 8)
+            
+            Button(action: {
+                for id in selectedIds {
+                    viewModel.deleteHobby(id: id, name: "")
+                }
+                selectedIds.removeAll()
+            }) {
+                Image(systemName: "trash").font(.system(size: 18))
+            }
+            .padding(.horizontal, 8)
+        }
+        .foregroundColor(theme.onSurface)
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .background(theme.primary.opacity(0.12))
     }
 
     // ── Top bar ───────────────────────────────────────────────────────────────
@@ -205,13 +372,36 @@ struct HomeScreen: View {
         case .recentActivity:
             return filtered.sorted { a, b in
                 if a.isPinned != b.isPinned { return a.isPinned }
-                return a.createdAt > b.createdAt
+                let aLast = viewModel.logDaysByHobby[a.id]?.first ?? a.createdAt
+                let bLast = viewModel.logDaysByHobby[b.id]?.first ?? b.createdAt
+                return aLast > bLast
             }
         case .alphabetical:
             return filtered.sorted { a, b in
                 if a.isPinned != b.isPinned { return a.isPinned }
                 return a.name.lowercased() < b.name.lowercased()
             }
+        case .custom:
+            return filtered.sorted { a, b in
+                if a.isPinned != b.isPinned { return a.isPinned }
+                return a.sortOrder < b.sortOrder
+            }
+        }
+    }
+    
+    private func toggleSelection(_ id: Int64) {
+        if selectedIds.contains(id) {
+            selectedIds.remove(id)
+        } else {
+            selectedIds.insert(id)
+        }
+    }
+    
+    private func moveHobbies(from source: IndexSet, to destination: Int, list: [Hobby]) {
+        var updated = list
+        updated.move(fromOffsets: source, toOffset: destination)
+        for (index, hobby) in updated.enumerated() {
+            viewModel.reorderHobby(id: hobby.id, newOrder: index)
         }
     }
 }
@@ -316,8 +506,11 @@ struct TrackerCard: View {
     let hobby: Hobby
     let streak: Int
     let now: Int64
+    let isSelected: Bool
+    let isInSelectionMode: Bool
     let onTap: () -> Void
     let onPin: () -> Void
+    let onLongPress: () -> Void
     @Environment(\.theme) private var theme
 
     var body: some View {
@@ -326,9 +519,16 @@ struct TrackerCard: View {
 
         Button(action: onTap) {
             HStack(spacing: 0) {
-                LinearGradient(colors: [category.accent, category.accent.opacity(0.3)],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(width: 4)
+                if isInSelectionMode {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 20))
+                        .foregroundColor(isSelected ? theme.primary : theme.onSurfaceVariant.opacity(0.6))
+                        .padding(.leading, 12)
+                } else {
+                    LinearGradient(colors: [category.accent, category.accent.opacity(0.3)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .frame(width: 4)
+                }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         CategoryBadge(category: category)
@@ -337,13 +537,15 @@ struct TrackerCard: View {
                             StatusPill(info: status)
                             if hobby.isPinned {
                                 Image(systemName: "pin.fill").font(.system(size: 14)).foregroundColor(theme.primary)
+                              }
+                            if !isInSelectionMode {
+                                Button(action: onPin) {
+                                    Image(systemName: hobby.isPinned ? "pin.fill" : "pin")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
                             }
-                            Button(action: onPin) {
-                                Image(systemName: hobby.isPinned ? "pin.fill" : "pin")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
-                            }
-                            .buttonStyle(.plain)
                         }
                     }
                     HStack(spacing: 12) {
@@ -373,11 +575,14 @@ struct TrackerCard: View {
                 }
                 .padding(14)
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 16))
+        .background(isSelected ? theme.primary.opacity(0.08) : theme.surface, in: RoundedRectangle(cornerRadius: 16))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(isSelected ? theme.primary : Color.clear, lineWidth: 2))
         .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+        .simultaneousGesture(LongPressGesture().onEnded { _ in onLongPress() })
     }
 }
 
@@ -416,8 +621,6 @@ struct TemplateDeck: View {
 
 // ─── Swipe to confirm row ─────────────────────────────────────────────────────
 
-/// Swipe a card aside to reveal an Archive (swipe left) or Delete (swipe right)
-/// action that holds open until tapped — a port of the Android `SwipeToConfirmRow`.
 struct SwipeToConfirmRow<Content: View>: View {
     let onArchive: () -> Void
     let onDelete: () -> Void
@@ -432,7 +635,6 @@ struct SwipeToConfirmRow<Content: View>: View {
 
     var body: some View {
         ZStack {
-            // Background actions
             HStack {
                 if offset > 1 {
                     actionButton(label: "Delete", icon: "trash",
@@ -446,7 +648,6 @@ struct SwipeToConfirmRow<Content: View>: View {
                                  align: .trailing) { withAnimation { offset = 0 }; onArchive() }
                 }
             }
-            // Foreground card
             content()
                 .offset(x: offset)
                 .gesture(

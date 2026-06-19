@@ -7,69 +7,71 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DEAD00000000000000000024 /* AppGroup.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000017 /* AppGroup.swift */; };
-		DEAD00000000000000000025 /* Models.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001B /* Models.swift */; };
-		DEAD00000000000000000026 /* Time.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000021 /* Time.swift */; };
-		DEAD00000000000000000027 /* AppDatabase.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000016 /* AppDatabase.swift */; };
-		DEAD00000000000000000028 /* HobbyRepository.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001A /* HobbyRepository.swift */; };
-		DEAD00000000000000000029 /* CategoryDefinitions.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000019 /* CategoryDefinitions.swift */; };
-		DEAD0000000000000000002A /* StreakMath.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001F /* StreakMath.swift */; };
-		DEAD0000000000000000002B /* Achievements.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000015 /* Achievements.swift */; };
-		DEAD0000000000000000002C /* BackupCodec.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000018 /* BackupCodec.swift */; };
-		DEAD0000000000000000002D /* RecurrenceMath.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001D /* RecurrenceMath.swift */; };
-		DEAD0000000000000000002E /* Theme.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000020 /* Theme.swift */; };
-		DEAD0000000000000000002F /* ReminderStatus.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001E /* ReminderStatus.swift */; };
-		DEAD00000000000000000030 /* Preferences.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001C /* Preferences.swift */; };
-		DEAD00000000000000000031 /* DonezyApp.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000007 /* DonezyApp.swift */; };
-		DEAD00000000000000000032 /* SharedComponents.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000E /* SharedComponents.swift */; };
-		DEAD00000000000000000033 /* HobbyViewModel.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000008 /* HobbyViewModel.swift */; };
-		DEAD00000000000000000034 /* NotificationManager.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000C /* NotificationManager.swift */; };
-		DEAD00000000000000000035 /* NotificationDelegate.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000B /* NotificationDelegate.swift */; };
-		DEAD00000000000000000036 /* WidgetBridge.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000010 /* WidgetBridge.swift */; };
-		DEAD00000000000000000037 /* SnackbarHost.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000F /* SnackbarHost.swift */; };
-		DEAD00000000000000000038 /* CreateTrackerSheet.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000004 /* CreateTrackerSheet.swift */; };
-		DEAD00000000000000000039 /* HomeScreen.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000009 /* HomeScreen.swift */; };
-		DEAD0000000000000000003A /* DetailScreen.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000005 /* DetailScreen.swift */; };
-		DEAD0000000000000000003B /* SettingsScreen.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000D /* SettingsScreen.swift */; };
-		DEAD0000000000000000003C /* ArchiveScreen.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000002 /* ArchiveScreen.swift */; };
-		DEAD0000000000000000003D /* AboutScreen.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000001 /* AboutScreen.swift */; };
-		DEAD0000000000000000003E /* Assets.xcassets in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000003 /* Assets.xcassets */; };
-		DEAD0000000000000000003F /* AppGroup.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000017 /* AppGroup.swift */; };
-		DEAD00000000000000000040 /* Models.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001B /* Models.swift */; };
-		DEAD00000000000000000041 /* Time.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000021 /* Time.swift */; };
-		DEAD00000000000000000042 /* AppDatabase.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000016 /* AppDatabase.swift */; };
-		DEAD00000000000000000043 /* HobbyRepository.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001A /* HobbyRepository.swift */; };
-		DEAD00000000000000000044 /* CategoryDefinitions.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000019 /* CategoryDefinitions.swift */; };
-		DEAD00000000000000000045 /* StreakMath.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001F /* StreakMath.swift */; };
-		DEAD00000000000000000046 /* Achievements.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000015 /* Achievements.swift */; };
-		DEAD00000000000000000047 /* BackupCodec.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000018 /* BackupCodec.swift */; };
-		DEAD00000000000000000048 /* RecurrenceMath.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001D /* RecurrenceMath.swift */; };
-		DEAD00000000000000000049 /* Theme.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000020 /* Theme.swift */; };
-		DEAD0000000000000000004A /* ReminderStatus.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001E /* ReminderStatus.swift */; };
-		DEAD0000000000000000004B /* Preferences.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001C /* Preferences.swift */; };
-		DEAD0000000000000000004C /* NextDueWidget.swift in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000014 /* NextDueWidget.swift */; };
-		DEAD0000000000000000004D /* Assets.xcassets in build */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000011 /* Assets.xcassets */; };
-		DEAD0000000000000000004E /* DonezyWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000023 /* DonezyWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DEAD00000000000000000026 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000019 /* AppGroup.swift */; };
+		DEAD00000000000000000027 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001D /* Models.swift */; };
+		DEAD00000000000000000028 /* Time.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000023 /* Time.swift */; };
+		DEAD00000000000000000029 /* AppDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000018 /* AppDatabase.swift */; };
+		DEAD0000000000000000002A /* HobbyRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001C /* HobbyRepository.swift */; };
+		DEAD0000000000000000002B /* CategoryDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001B /* CategoryDefinitions.swift */; };
+		DEAD0000000000000000002C /* StreakMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000021 /* StreakMath.swift */; };
+		DEAD0000000000000000002D /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000017 /* Achievements.swift */; };
+		DEAD0000000000000000002E /* BackupCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001A /* BackupCodec.swift */; };
+		DEAD0000000000000000002F /* RecurrenceMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001F /* RecurrenceMath.swift */; };
+		DEAD00000000000000000030 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000022 /* Theme.swift */; };
+		DEAD00000000000000000031 /* ReminderStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000020 /* ReminderStatus.swift */; };
+		DEAD00000000000000000032 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001E /* Preferences.swift */; };
+		DEAD00000000000000000033 /* DonezyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000007 /* DonezyApp.swift */; };
+		DEAD00000000000000000034 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000010 /* SharedComponents.swift */; };
+		DEAD00000000000000000035 /* HobbyViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000008 /* HobbyViewModel.swift */; };
+		DEAD00000000000000000036 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000C /* NotificationManager.swift */; };
+		DEAD00000000000000000037 /* NotificationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000B /* NotificationDelegate.swift */; };
+		DEAD00000000000000000038 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000012 /* WidgetBridge.swift */; };
+		DEAD00000000000000000039 /* SnackbarHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000011 /* SnackbarHost.swift */; };
+		DEAD0000000000000000003A /* CreateTrackerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000004 /* CreateTrackerSheet.swift */; };
+		DEAD0000000000000000003B /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000009 /* HomeScreen.swift */; };
+		DEAD0000000000000000003C /* DetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000005 /* DetailScreen.swift */; };
+		DEAD0000000000000000003D /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000F /* SettingsScreen.swift */; };
+		DEAD0000000000000000003E /* ArchiveScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000002 /* ArchiveScreen.swift */; };
+		DEAD0000000000000000003F /* AboutScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000001 /* AboutScreen.swift */; };
+		DEAD00000000000000000040 /* NotificationSoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000D /* NotificationSoundPlayer.swift */; };
+		DEAD00000000000000000041 /* OnboardingScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000000E /* OnboardingScreen.swift */; };
+		DEAD00000000000000000042 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000003 /* Assets.xcassets */; };
+		DEAD00000000000000000043 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000019 /* AppGroup.swift */; };
+		DEAD00000000000000000044 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001D /* Models.swift */; };
+		DEAD00000000000000000045 /* Time.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000023 /* Time.swift */; };
+		DEAD00000000000000000046 /* AppDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000018 /* AppDatabase.swift */; };
+		DEAD00000000000000000047 /* HobbyRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001C /* HobbyRepository.swift */; };
+		DEAD00000000000000000048 /* CategoryDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001B /* CategoryDefinitions.swift */; };
+		DEAD00000000000000000049 /* StreakMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000021 /* StreakMath.swift */; };
+		DEAD0000000000000000004A /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000017 /* Achievements.swift */; };
+		DEAD0000000000000000004B /* BackupCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001A /* BackupCodec.swift */; };
+		DEAD0000000000000000004C /* RecurrenceMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001F /* RecurrenceMath.swift */; };
+		DEAD0000000000000000004D /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000022 /* Theme.swift */; };
+		DEAD0000000000000000004E /* ReminderStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000020 /* ReminderStatus.swift */; };
+		DEAD0000000000000000004F /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD0000000000000000001E /* Preferences.swift */; };
+		DEAD00000000000000000050 /* NextDueWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000016 /* NextDueWidget.swift */; };
+		DEAD00000000000000000051 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000013 /* Assets.xcassets */; };
+		DEAD00000000000000000052 /* DonezyWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DEAD00000000000000000025 /* DonezyWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		DEAD00000000000000000052 /* PBXContainerItemProxy */ = {
+		DEAD00000000000000000056 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = DEAD0000000000000000004F /* Project object */;
+			containerPortal = DEAD00000000000000000053 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = DEAD00000000000000000051;
+			remoteGlobalIDString = DEAD00000000000000000055;
 			remoteInfo = DonezyWidget;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		DEAD00000000000000000057 /* Embed Foundation Extensions */ = {
+		DEAD0000000000000000005B /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				DEAD0000000000000000004E /* DonezyWidget.appex in Embed Foundation Extensions */,
+				DEAD00000000000000000052 /* DonezyWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -77,52 +79,54 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		DEAD00000000000000000001 /* AboutScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AboutScreen.swift"; path = "Donezy/AboutScreen.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000002 /* ArchiveScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ArchiveScreen.swift"; path = "Donezy/ArchiveScreen.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = "Assets.xcassets"; path = "Donezy/Assets.xcassets"; sourceTree = "<group>"; };
-		DEAD00000000000000000004 /* CreateTrackerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CreateTrackerSheet.swift"; path = "Donezy/CreateTrackerSheet.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000005 /* DetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DetailScreen.swift"; path = "Donezy/DetailScreen.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000006 /* Donezy.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "Donezy.entitlements"; path = "Donezy/Donezy.entitlements"; sourceTree = "<group>"; };
-		DEAD00000000000000000007 /* DonezyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DonezyApp.swift"; path = "Donezy/DonezyApp.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000008 /* HobbyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "HobbyViewModel.swift"; path = "Donezy/HobbyViewModel.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000009 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "HomeScreen.swift"; path = "Donezy/HomeScreen.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info.plist"; path = "Donezy/Info.plist"; sourceTree = "<group>"; };
-		DEAD0000000000000000000B /* NotificationDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NotificationDelegate.swift"; path = "Donezy/NotificationDelegate.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000000C /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NotificationManager.swift"; path = "Donezy/NotificationManager.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000000D /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SettingsScreen.swift"; path = "Donezy/SettingsScreen.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000000E /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SharedComponents.swift"; path = "Donezy/SharedComponents.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000000F /* SnackbarHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SnackbarHost.swift"; path = "Donezy/SnackbarHost.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000010 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "WidgetBridge.swift"; path = "Donezy/WidgetBridge.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = "Assets.xcassets"; path = "DonezyWidget/Assets.xcassets"; sourceTree = "<group>"; };
-		DEAD00000000000000000012 /* DonezyWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "DonezyWidget.entitlements"; path = "DonezyWidget/DonezyWidget.entitlements"; sourceTree = "<group>"; };
-		DEAD00000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info.plist"; path = "DonezyWidget/Info.plist"; sourceTree = "<group>"; };
-		DEAD00000000000000000014 /* NextDueWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NextDueWidget.swift"; path = "DonezyWidget/NextDueWidget.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000015 /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Achievements.swift"; path = "Shared/Achievements.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000016 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AppDatabase.swift"; path = "Shared/AppDatabase.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000017 /* AppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AppGroup.swift"; path = "Shared/AppGroup.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000018 /* BackupCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "BackupCodec.swift"; path = "Shared/BackupCodec.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000019 /* CategoryDefinitions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CategoryDefinitions.swift"; path = "Shared/CategoryDefinitions.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000001A /* HobbyRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "HobbyRepository.swift"; path = "Shared/HobbyRepository.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000001B /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Models.swift"; path = "Shared/Models.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000001C /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Preferences.swift"; path = "Shared/Preferences.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000001D /* RecurrenceMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RecurrenceMath.swift"; path = "Shared/RecurrenceMath.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000001E /* ReminderStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ReminderStatus.swift"; path = "Shared/ReminderStatus.swift"; sourceTree = "<group>"; };
-		DEAD0000000000000000001F /* StreakMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StreakMath.swift"; path = "Shared/StreakMath.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000020 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Theme.swift"; path = "Shared/Theme.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000021 /* Time.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Time.swift"; path = "Shared/Time.swift"; sourceTree = "<group>"; };
-		DEAD00000000000000000022 /* Donezy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Donezy.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		DEAD00000000000000000023 /* DonezyWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DonezyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DEAD00000000000000000001 /* AboutScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AboutScreen.swift; path = Donezy/AboutScreen.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000002 /* ArchiveScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ArchiveScreen.swift; path = Donezy/ArchiveScreen.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Donezy/Assets.xcassets; sourceTree = "<group>"; };
+		DEAD00000000000000000004 /* CreateTrackerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CreateTrackerSheet.swift; path = Donezy/CreateTrackerSheet.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000005 /* DetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DetailScreen.swift; path = Donezy/DetailScreen.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000006 /* Donezy.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Donezy.entitlements; path = Donezy/Donezy.entitlements; sourceTree = "<group>"; };
+		DEAD00000000000000000007 /* DonezyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DonezyApp.swift; path = Donezy/DonezyApp.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000008 /* HobbyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HobbyViewModel.swift; path = Donezy/HobbyViewModel.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000009 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeScreen.swift; path = Donezy/HomeScreen.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Donezy/Info.plist; sourceTree = "<group>"; };
+		DEAD0000000000000000000B /* NotificationDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotificationDelegate.swift; path = Donezy/NotificationDelegate.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000000C /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotificationManager.swift; path = Donezy/NotificationManager.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000000D /* NotificationSoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotificationSoundPlayer.swift; path = Donezy/NotificationSoundPlayer.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000000E /* OnboardingScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingScreen.swift; path = Donezy/OnboardingScreen.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000000F /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsScreen.swift; path = Donezy/SettingsScreen.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000010 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedComponents.swift; path = Donezy/SharedComponents.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000011 /* SnackbarHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SnackbarHost.swift; path = Donezy/SnackbarHost.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000012 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WidgetBridge.swift; path = Donezy/WidgetBridge.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = DonezyWidget/Assets.xcassets; sourceTree = "<group>"; };
+		DEAD00000000000000000014 /* DonezyWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = DonezyWidget.entitlements; path = DonezyWidget/DonezyWidget.entitlements; sourceTree = "<group>"; };
+		DEAD00000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = DonezyWidget/Info.plist; sourceTree = "<group>"; };
+		DEAD00000000000000000016 /* NextDueWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NextDueWidget.swift; path = DonezyWidget/NextDueWidget.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000017 /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Achievements.swift; path = Shared/Achievements.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000018 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDatabase.swift; path = Shared/AppDatabase.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000019 /* AppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppGroup.swift; path = Shared/AppGroup.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000001A /* BackupCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackupCodec.swift; path = Shared/BackupCodec.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000001B /* CategoryDefinitions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CategoryDefinitions.swift; path = Shared/CategoryDefinitions.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000001C /* HobbyRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HobbyRepository.swift; path = Shared/HobbyRepository.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000001D /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Models.swift; path = Shared/Models.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000001E /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Preferences.swift; path = Shared/Preferences.swift; sourceTree = "<group>"; };
+		DEAD0000000000000000001F /* RecurrenceMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecurrenceMath.swift; path = Shared/RecurrenceMath.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000020 /* ReminderStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReminderStatus.swift; path = Shared/ReminderStatus.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000021 /* StreakMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StreakMath.swift; path = Shared/StreakMath.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000022 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Theme.swift; path = Shared/Theme.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000023 /* Time.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Time.swift; path = Shared/Time.swift; sourceTree = "<group>"; };
+		DEAD00000000000000000024 /* Donezy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Donezy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DEAD00000000000000000025 /* DonezyWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DonezyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		DEAD00000000000000000056 /* Frameworks */ = {
+		DEAD0000000000000000005A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		DEAD0000000000000000005A /* Frameworks */ = {
+		DEAD0000000000000000005E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -132,61 +136,63 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		DEAD0000000000000000005B = {
+		DEAD0000000000000000005F = {
 			isa = PBXGroup;
 			children = (
-				DEAD0000000000000000005D /* Shared */,
-				DEAD0000000000000000005E /* Donezy */,
-				DEAD0000000000000000005F /* DonezyWidget */,
-				DEAD0000000000000000005C /* Products */,
+				DEAD00000000000000000061 /* Shared */,
+				DEAD00000000000000000062 /* Donezy */,
+				DEAD00000000000000000063 /* DonezyWidget */,
+				DEAD00000000000000000060 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		DEAD0000000000000000005C /* Products */ = {
+		DEAD00000000000000000060 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DEAD00000000000000000022 /* Donezy.app */,
-				DEAD00000000000000000023 /* DonezyWidget.appex */,
+				DEAD00000000000000000024 /* Donezy.app */,
+				DEAD00000000000000000025 /* DonezyWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		DEAD0000000000000000005D /* Shared */ = {
+		DEAD00000000000000000061 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				DEAD00000000000000000017 /* AppGroup.swift */,
-				DEAD0000000000000000001B /* Models.swift */,
-				DEAD00000000000000000021 /* Time.swift */,
-				DEAD00000000000000000016 /* AppDatabase.swift */,
-				DEAD0000000000000000001A /* HobbyRepository.swift */,
-				DEAD00000000000000000019 /* CategoryDefinitions.swift */,
-				DEAD0000000000000000001F /* StreakMath.swift */,
-				DEAD00000000000000000015 /* Achievements.swift */,
-				DEAD00000000000000000018 /* BackupCodec.swift */,
-				DEAD0000000000000000001D /* RecurrenceMath.swift */,
-				DEAD00000000000000000020 /* Theme.swift */,
-				DEAD0000000000000000001E /* ReminderStatus.swift */,
-				DEAD0000000000000000001C /* Preferences.swift */,
+				DEAD00000000000000000019 /* AppGroup.swift */,
+				DEAD0000000000000000001D /* Models.swift */,
+				DEAD00000000000000000023 /* Time.swift */,
+				DEAD00000000000000000018 /* AppDatabase.swift */,
+				DEAD0000000000000000001C /* HobbyRepository.swift */,
+				DEAD0000000000000000001B /* CategoryDefinitions.swift */,
+				DEAD00000000000000000021 /* StreakMath.swift */,
+				DEAD00000000000000000017 /* Achievements.swift */,
+				DEAD0000000000000000001A /* BackupCodec.swift */,
+				DEAD0000000000000000001F /* RecurrenceMath.swift */,
+				DEAD00000000000000000022 /* Theme.swift */,
+				DEAD00000000000000000020 /* ReminderStatus.swift */,
+				DEAD0000000000000000001E /* Preferences.swift */,
 			);
 			name = Shared;
 			sourceTree = "<group>";
 		};
-		DEAD0000000000000000005E /* Donezy */ = {
+		DEAD00000000000000000062 /* Donezy */ = {
 			isa = PBXGroup;
 			children = (
 				DEAD00000000000000000007 /* DonezyApp.swift */,
-				DEAD0000000000000000000E /* SharedComponents.swift */,
+				DEAD00000000000000000010 /* SharedComponents.swift */,
 				DEAD00000000000000000008 /* HobbyViewModel.swift */,
 				DEAD0000000000000000000C /* NotificationManager.swift */,
 				DEAD0000000000000000000B /* NotificationDelegate.swift */,
-				DEAD00000000000000000010 /* WidgetBridge.swift */,
-				DEAD0000000000000000000F /* SnackbarHost.swift */,
+				DEAD00000000000000000012 /* WidgetBridge.swift */,
+				DEAD00000000000000000011 /* SnackbarHost.swift */,
 				DEAD00000000000000000004 /* CreateTrackerSheet.swift */,
 				DEAD00000000000000000009 /* HomeScreen.swift */,
 				DEAD00000000000000000005 /* DetailScreen.swift */,
-				DEAD0000000000000000000D /* SettingsScreen.swift */,
+				DEAD0000000000000000000F /* SettingsScreen.swift */,
 				DEAD00000000000000000002 /* ArchiveScreen.swift */,
 				DEAD00000000000000000001 /* AboutScreen.swift */,
+				DEAD0000000000000000000D /* NotificationSoundPlayer.swift */,
+				DEAD0000000000000000000E /* OnboardingScreen.swift */,
 				DEAD00000000000000000003 /* Assets.xcassets */,
 				DEAD0000000000000000000A /* Info.plist */,
 				DEAD00000000000000000006 /* Donezy.entitlements */,
@@ -194,13 +200,13 @@
 			name = Donezy;
 			sourceTree = "<group>";
 		};
-		DEAD0000000000000000005F /* DonezyWidget */ = {
+		DEAD00000000000000000063 /* DonezyWidget */ = {
 			isa = PBXGroup;
 			children = (
-				DEAD00000000000000000014 /* NextDueWidget.swift */,
-				DEAD00000000000000000011 /* Assets.xcassets */,
-				DEAD00000000000000000013 /* Info.plist */,
-				DEAD00000000000000000012 /* DonezyWidget.entitlements */,
+				DEAD00000000000000000016 /* NextDueWidget.swift */,
+				DEAD00000000000000000013 /* Assets.xcassets */,
+				DEAD00000000000000000015 /* Info.plist */,
+				DEAD00000000000000000014 /* DonezyWidget.entitlements */,
 			);
 			name = DonezyWidget;
 			sourceTree = "<group>";
@@ -208,32 +214,32 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DEAD00000000000000000050 /* Donezy */ = {
+		DEAD00000000000000000054 /* Donezy */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DEAD00000000000000000061 /* Build configuration list for PBXNativeTarget "Donezy" */;
-			buildPhases = (
-				DEAD00000000000000000054 /* Sources */,
-				DEAD00000000000000000056 /* Frameworks */,
-				DEAD00000000000000000055 /* Resources */,
-				DEAD00000000000000000057 /* Embed Foundation Extensions */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				DEAD00000000000000000053 /* PBXTargetDependency */,
-			);
-			name = Donezy;
-			productName = Donezy;
-			productReference = DEAD00000000000000000022 /* Donezy.app */;
-			productType = "com.apple.product-type.application";
-		};
-		DEAD00000000000000000051 /* DonezyWidget */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = DEAD00000000000000000062 /* Build configuration list for PBXNativeTarget "DonezyWidget" */;
+			buildConfigurationList = DEAD00000000000000000065 /* Build configuration list for PBXNativeTarget "Donezy" */;
 			buildPhases = (
 				DEAD00000000000000000058 /* Sources */,
 				DEAD0000000000000000005A /* Frameworks */,
 				DEAD00000000000000000059 /* Resources */,
+				DEAD0000000000000000005B /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DEAD00000000000000000057 /* PBXTargetDependency */,
+			);
+			name = Donezy;
+			productName = Donezy;
+			productReference = DEAD00000000000000000024 /* Donezy.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DEAD00000000000000000055 /* DonezyWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DEAD00000000000000000066 /* Build configuration list for PBXNativeTarget "DonezyWidget" */;
+			buildPhases = (
+				DEAD0000000000000000005C /* Sources */,
+				DEAD0000000000000000005E /* Frameworks */,
+				DEAD0000000000000000005D /* Resources */,
 			);
 			buildRules = (
 			);
@@ -241,168 +247,180 @@
 			);
 			name = DonezyWidget;
 			productName = DonezyWidget;
-			productReference = DEAD00000000000000000023 /* DonezyWidget.appex */;
+			productReference = DEAD00000000000000000025 /* DonezyWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		DEAD0000000000000000004F /* Project object */ = {
+		DEAD00000000000000000053 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					DEAD00000000000000000050 = { CreatedOnToolsVersion = 16.0; };
-					DEAD00000000000000000051 = { CreatedOnToolsVersion = 16.0; };
+					DEAD00000000000000000054 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					DEAD00000000000000000055 = {
+						CreatedOnToolsVersion = 16.0;
+					};
 				};
 			};
-			buildConfigurationList = DEAD00000000000000000060 /* Build configuration list for PBXProject "Donezy" */;
+			buildConfigurationList = DEAD00000000000000000064 /* Build configuration list for PBXProject "Donezy" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base, );
-			mainGroup = DEAD0000000000000000005B;
-			productRefGroup = DEAD0000000000000000005C /* Products */;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = DEAD0000000000000000005F;
+			productRefGroup = DEAD00000000000000000060 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DEAD00000000000000000050 /* Donezy */,
-				DEAD00000000000000000051 /* DonezyWidget */,
+				DEAD00000000000000000054 /* Donezy */,
+				DEAD00000000000000000055 /* DonezyWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		DEAD00000000000000000055 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DEAD0000000000000000003E /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DEAD00000000000000000059 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DEAD0000000000000000004D /* Assets.xcassets in Resources */,
+				DEAD00000000000000000042 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DEAD0000000000000000005D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DEAD00000000000000000051 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		DEAD00000000000000000054 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DEAD00000000000000000024 /* AppGroup.swift in Sources */,
-				DEAD00000000000000000025 /* Models.swift in Sources */,
-				DEAD00000000000000000026 /* Time.swift in Sources */,
-				DEAD00000000000000000027 /* AppDatabase.swift in Sources */,
-				DEAD00000000000000000028 /* HobbyRepository.swift in Sources */,
-				DEAD00000000000000000029 /* CategoryDefinitions.swift in Sources */,
-				DEAD0000000000000000002A /* StreakMath.swift in Sources */,
-				DEAD0000000000000000002B /* Achievements.swift in Sources */,
-				DEAD0000000000000000002C /* BackupCodec.swift in Sources */,
-				DEAD0000000000000000002D /* RecurrenceMath.swift in Sources */,
-				DEAD0000000000000000002E /* Theme.swift in Sources */,
-				DEAD0000000000000000002F /* ReminderStatus.swift in Sources */,
-				DEAD00000000000000000030 /* Preferences.swift in Sources */,
-				DEAD00000000000000000031 /* DonezyApp.swift in Sources */,
-				DEAD00000000000000000032 /* SharedComponents.swift in Sources */,
-				DEAD00000000000000000033 /* HobbyViewModel.swift in Sources */,
-				DEAD00000000000000000034 /* NotificationManager.swift in Sources */,
-				DEAD00000000000000000035 /* NotificationDelegate.swift in Sources */,
-				DEAD00000000000000000036 /* WidgetBridge.swift in Sources */,
-				DEAD00000000000000000037 /* SnackbarHost.swift in Sources */,
-				DEAD00000000000000000038 /* CreateTrackerSheet.swift in Sources */,
-				DEAD00000000000000000039 /* HomeScreen.swift in Sources */,
-				DEAD0000000000000000003A /* DetailScreen.swift in Sources */,
-				DEAD0000000000000000003B /* SettingsScreen.swift in Sources */,
-				DEAD0000000000000000003C /* ArchiveScreen.swift in Sources */,
-				DEAD0000000000000000003D /* AboutScreen.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		DEAD00000000000000000058 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DEAD0000000000000000003F /* AppGroup.swift in Sources */,
-				DEAD00000000000000000040 /* Models.swift in Sources */,
-				DEAD00000000000000000041 /* Time.swift in Sources */,
-				DEAD00000000000000000042 /* AppDatabase.swift in Sources */,
-				DEAD00000000000000000043 /* HobbyRepository.swift in Sources */,
-				DEAD00000000000000000044 /* CategoryDefinitions.swift in Sources */,
-				DEAD00000000000000000045 /* StreakMath.swift in Sources */,
-				DEAD00000000000000000046 /* Achievements.swift in Sources */,
-				DEAD00000000000000000047 /* BackupCodec.swift in Sources */,
-				DEAD00000000000000000048 /* RecurrenceMath.swift in Sources */,
-				DEAD00000000000000000049 /* Theme.swift in Sources */,
-				DEAD0000000000000000004A /* ReminderStatus.swift in Sources */,
-				DEAD0000000000000000004B /* Preferences.swift in Sources */,
-				DEAD0000000000000000004C /* NextDueWidget.swift in Sources */,
+				DEAD00000000000000000026 /* AppGroup.swift in Sources */,
+				DEAD00000000000000000027 /* Models.swift in Sources */,
+				DEAD00000000000000000028 /* Time.swift in Sources */,
+				DEAD00000000000000000029 /* AppDatabase.swift in Sources */,
+				DEAD0000000000000000002A /* HobbyRepository.swift in Sources */,
+				DEAD0000000000000000002B /* CategoryDefinitions.swift in Sources */,
+				DEAD0000000000000000002C /* StreakMath.swift in Sources */,
+				DEAD0000000000000000002D /* Achievements.swift in Sources */,
+				DEAD0000000000000000002E /* BackupCodec.swift in Sources */,
+				DEAD0000000000000000002F /* RecurrenceMath.swift in Sources */,
+				DEAD00000000000000000030 /* Theme.swift in Sources */,
+				DEAD00000000000000000031 /* ReminderStatus.swift in Sources */,
+				DEAD00000000000000000032 /* Preferences.swift in Sources */,
+				DEAD00000000000000000033 /* DonezyApp.swift in Sources */,
+				DEAD00000000000000000034 /* SharedComponents.swift in Sources */,
+				DEAD00000000000000000035 /* HobbyViewModel.swift in Sources */,
+				DEAD00000000000000000036 /* NotificationManager.swift in Sources */,
+				DEAD00000000000000000037 /* NotificationDelegate.swift in Sources */,
+				DEAD00000000000000000038 /* WidgetBridge.swift in Sources */,
+				DEAD00000000000000000039 /* SnackbarHost.swift in Sources */,
+				DEAD0000000000000000003A /* CreateTrackerSheet.swift in Sources */,
+				DEAD0000000000000000003B /* HomeScreen.swift in Sources */,
+				DEAD0000000000000000003C /* DetailScreen.swift in Sources */,
+				DEAD0000000000000000003D /* SettingsScreen.swift in Sources */,
+				DEAD0000000000000000003E /* ArchiveScreen.swift in Sources */,
+				DEAD0000000000000000003F /* AboutScreen.swift in Sources */,
+				DEAD00000000000000000040 /* NotificationSoundPlayer.swift in Sources */,
+				DEAD00000000000000000041 /* OnboardingScreen.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DEAD0000000000000000005C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DEAD00000000000000000043 /* AppGroup.swift in Sources */,
+				DEAD00000000000000000044 /* Models.swift in Sources */,
+				DEAD00000000000000000045 /* Time.swift in Sources */,
+				DEAD00000000000000000046 /* AppDatabase.swift in Sources */,
+				DEAD00000000000000000047 /* HobbyRepository.swift in Sources */,
+				DEAD00000000000000000048 /* CategoryDefinitions.swift in Sources */,
+				DEAD00000000000000000049 /* StreakMath.swift in Sources */,
+				DEAD0000000000000000004A /* Achievements.swift in Sources */,
+				DEAD0000000000000000004B /* BackupCodec.swift in Sources */,
+				DEAD0000000000000000004C /* RecurrenceMath.swift in Sources */,
+				DEAD0000000000000000004D /* Theme.swift in Sources */,
+				DEAD0000000000000000004E /* ReminderStatus.swift in Sources */,
+				DEAD0000000000000000004F /* Preferences.swift in Sources */,
+				DEAD00000000000000000050 /* NextDueWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		DEAD00000000000000000053 /* PBXTargetDependency */ = {
+		DEAD00000000000000000057 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = DEAD00000000000000000051 /* DonezyWidget */;
-			targetProxy = DEAD00000000000000000052 /* PBXContainerItemProxy */;
+			target = DEAD00000000000000000055 /* DonezyWidget */;
+			targetProxy = DEAD00000000000000000056 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		DEAD00000000000000000063 /* Debug */ = {
+		DEAD00000000000000000067 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_TESTABILITY = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)", );
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
-		DEAD00000000000000000064 /* Release */ = {
+		DEAD00000000000000000068 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		DEAD00000000000000000065 /* Debug */ = {
+		DEAD00000000000000000069 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -410,12 +428,15 @@
 				CODE_SIGN_ENTITLEMENTS = Donezy/Donezy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = Q3VGQF9XCB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Donezy/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swarnkary.donezy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -424,7 +445,7 @@
 			};
 			name = Debug;
 		};
-		DEAD00000000000000000066 /* Release */ = {
+		DEAD0000000000000000006A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -432,12 +453,15 @@
 				CODE_SIGN_ENTITLEMENTS = Donezy/Donezy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = Q3VGQF9XCB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Donezy/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swarnkary.donezy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -446,7 +470,7 @@
 			};
 			name = Release;
 		};
-		DEAD00000000000000000067 /* Debug */ = {
+		DEAD0000000000000000006B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -454,13 +478,17 @@
 				CODE_SIGN_ENTITLEMENTS = DonezyWidget/DonezyWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = Q3VGQF9XCB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DonezyWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Donezy;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swarnkary.donezy.DonezyWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -470,7 +498,7 @@
 			};
 			name = Debug;
 		};
-		DEAD00000000000000000068 /* Release */ = {
+		DEAD0000000000000000006C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -478,13 +506,17 @@
 				CODE_SIGN_ENTITLEMENTS = DonezyWidget/DonezyWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = Q3VGQF9XCB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DonezyWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Donezy;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swarnkary.donezy.DonezyWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -497,25 +529,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DEAD00000000000000000060 /* Build configuration list for PBXProject "Donezy" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DEAD00000000000000000063 /* Debug */,
-				DEAD00000000000000000064 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		DEAD00000000000000000061 /* Build configuration list for PBXNativeTarget "Donezy" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DEAD00000000000000000065 /* Debug */,
-				DEAD00000000000000000066 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		DEAD00000000000000000062 /* Build configuration list for PBXNativeTarget "DonezyWidget" */ = {
+		DEAD00000000000000000064 /* Build configuration list for PBXProject "Donezy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DEAD00000000000000000067 /* Debug */,
@@ -524,7 +538,25 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		DEAD00000000000000000065 /* Build configuration list for PBXNativeTarget "Donezy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DEAD00000000000000000069 /* Debug */,
+				DEAD0000000000000000006A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DEAD00000000000000000066 /* Build configuration list for PBXNativeTarget "DonezyWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DEAD0000000000000000006B /* Debug */,
+				DEAD0000000000000000006C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 	};
-	rootObject = DEAD0000000000000000004F /* Project object */;
+	rootObject = DEAD00000000000000000053 /* Project object */;
 }

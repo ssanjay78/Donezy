@@ -6,4 +6,8 @@
     <string name="widget_default_title">Donezy</string>
     <string name="widget_default_subtitle">Nothing scheduled</string>
     <string name="widget_log_button">✓ Logged</string>
+    <string name="widget_streak_description">See your best active streak at a glance.</string>
+    <string name="widget_streak_label">Donezy · Best streak</string>
+    <string name="widget_streak_default_title">Donezy</string>
+    <string name="widget_streak_default_subtitle">No active streak</string>
 </resources>

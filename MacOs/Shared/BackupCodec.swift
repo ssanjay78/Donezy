@@ -6,7 +6,7 @@ import Foundation
 /// round-trips faithfully.
 enum BackupCodec {
 
-    private static let version = 4
+    private static let version = 5
 
     static func encode(hobbies: [Hobby], logs: [HobbyLog]) -> String {
         var root: [String: Any] = [:]
@@ -27,6 +27,7 @@ enum BackupCodec {
                 "recurrenceType": type,
                 "recurrenceData": data,
                 "weeklyGoal": h.weeklyGoal,
+                "sortOrder": h.sortOrder
             ]
             if let r = h.nextReminderAt { o["nextReminderAt"] = r }
             return o
@@ -54,6 +55,12 @@ enum BackupCodec {
             throw NSError(domain: "BackupCodec", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Malformed backup file"])
         }
+        
+        let version = root["version"] as? Int ?? 1
+        if version > 5 {
+            throw NSError(domain: "BackupCodec", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Backup version \(version) is newer than supported (5). Please update Donezy."])
+        }
 
         let hobbiesArr = root["hobbies"] as? [[String: Any]] ?? []
         let logsArr = root["logs"] as? [[String: Any]] ?? []
@@ -78,7 +85,8 @@ enum BackupCodec {
                 isArchived: o["isArchived"] as? Bool ?? false,
                 reminderIntervalHours: intervalHours,
                 recurrence: recurrence,
-                weeklyGoal: (o["weeklyGoal"] as? NSNumber)?.intValue ?? 0
+                weeklyGoal: (o["weeklyGoal"] as? NSNumber)?.intValue ?? 0,
+                sortOrder: (o["sortOrder"] as? NSNumber)?.intValue ?? 0
             )
         }
 

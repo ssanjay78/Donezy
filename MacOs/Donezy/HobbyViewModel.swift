@@ -13,13 +13,14 @@ enum NavState: Equatable {
 }
 
 enum SortBy: String, CaseIterable, Identifiable {
-    case dueSoon, recentActivity, alphabetical
+    case dueSoon, recentActivity, alphabetical, custom
     var id: String { rawValue }
     var label: String {
         switch self {
         case .dueSoon: return "Due soon"
         case .recentActivity: return "Recent"
         case .alphabetical: return "A–Z"
+        case .custom: return "Custom"
         }
     }
 }
@@ -51,11 +52,15 @@ final class HobbyViewModel: ObservableObject {
     @Published var themeMode: ThemeMode
     @Published private(set) var navState: NavState = .home
     @Published private(set) var detail: HobbyDetail?
+    @Published private(set) var filteredLogs: [HobbyLog] = []
 
     // Settings, surfaced for the Settings screen.
     @Published var soundEnabled: Bool
     @Published var vibrateEnabled: Bool
     @Published var streakRescueEnabled: Bool
+    @Published var playbackDurationSeconds: Int
+    @Published var customSoundUri: String?
+    @Published var onboardingCompleted: Bool
 
     @Published var currentSnackbar: SnackbarEvent?
 
@@ -74,6 +79,9 @@ final class HobbyViewModel: ObservableObject {
         self.soundEnabled = settingsPreferences.soundEnabled
         self.vibrateEnabled = settingsPreferences.vibrateEnabled
         self.streakRescueEnabled = settingsPreferences.streakRescueEnabled
+        self.playbackDurationSeconds = settingsPreferences.playbackDurationSeconds
+        self.customSoundUri = settingsPreferences.customSoundUri
+        self.onboardingCompleted = settingsPreferences.onboardingCompleted
 
         // Bridge the repository's @Published lists into ours.
         repository.$hobbies.receive(on: DispatchQueue.main).assign(to: &$hobbies)
@@ -106,12 +114,14 @@ final class HobbyViewModel: ObservableObject {
             return
         }
         detail = d
+        filteredLogs = d.logs
         navState = .detail(hobbyId: id)
     }
 
     func goHome() {
         navState = .home
         detail = nil
+        filteredLogs = []
         repository.refresh()
     }
 
@@ -119,7 +129,11 @@ final class HobbyViewModel: ObservableObject {
     func openSettings() { navState = .settings }
     func openAbout() { navState = .about }
 
-    func refreshDetail(_ id: Int64) { detail = repository.detail(id) }
+    func refreshDetail(_ id: Int64) {
+        let d = repository.detail(id)
+        detail = d
+        filteredLogs = d?.logs ?? []
+    }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
 
@@ -140,6 +154,15 @@ final class HobbyViewModel: ObservableObject {
         settingsPreferences.setStreakRescue(enabled); streakRescueEnabled = enabled
         if enabled { NotificationManager.scheduleStreakRescue() }
         else { NotificationManager.cancelStreakRescue() }
+    }
+    func setPlaybackDurationSeconds(_ seconds: Int) {
+        settingsPreferences.setPlaybackDuration(seconds); playbackDurationSeconds = seconds
+    }
+    func setCustomSoundUri(_ uri: String?) {
+        settingsPreferences.setCustomSound(uri); customSoundUri = uri
+    }
+    func completeOnboarding() {
+        settingsPreferences.setOnboardingCompleted(true); onboardingCompleted = true
     }
 
     // ── Tracker CRUD ──────────────────────────────────────────────────────────
@@ -233,7 +256,7 @@ final class HobbyViewModel: ObservableObject {
         let beforeDetail = repository.detail(hobbyId)
         let beforeSnapshot = beforeDetail.map { AchievementSnapshot.from(hobby: $0.hobby, logs: $0.logs) }
 
-        repository.addLog(hobbyId: hobbyId, entry: entry, rating: rating, photoUri: photoUri)
+        let logId = repository.addLog(hobbyId: hobbyId, entry: entry, rating: rating, photoUri: photoUri)
         refreshDetail(hobbyId)
         WidgetBridge.reload()
 
@@ -246,10 +269,16 @@ final class HobbyViewModel: ObservableObject {
         } else { newAchievements = [] }
 
         if let a = newAchievements.first {
-            // Surface the first newly-earned achievement (Android queues all; one is plenty for a toast).
             emit("\(a.emoji) \(a.title) unlocked — \(a.tagline)")
         } else {
-            emit(Affirmations.pick())
+            if logId > 0 {
+                emit(Affirmations.pick(), action: "Undo", onAction: { [weak self] in
+                    self?.repository.deleteLog(id: logId)
+                    self?.refreshDetail(hobbyId)
+                })
+            } else {
+                emit(Affirmations.pick())
+            }
         }
 
         if case .detail = navState { goHome() }
@@ -263,6 +292,12 @@ final class HobbyViewModel: ObservableObject {
             self?.repository.insertLog(snapshot)
             self?.refreshDetail(hobbyId)
         })
+    }
+
+    func updateLog(hobbyId: Int64, logId: Int64, entry: String, rating: Int?, photoUri: String?) {
+        repository.updateLog(id: logId, entry: entry, rating: rating, photoUri: photoUri)
+        refreshDetail(hobbyId)
+        emit("Log updated ✓")
     }
 
     // ── Photos ──────────────────────────────────────────────────────────────────
@@ -287,6 +322,16 @@ final class HobbyViewModel: ObservableObject {
         logSearchQuery = query
         logSearchResults = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? [] : repository.searchLogs(query: query)
+    }
+
+    func filterLogsByDateRange(hobbyId: Int64, fromMs: Int64, toMs: Int64) {
+        filteredLogs = repository.searchLogsByDateRange(hobbyId: hobbyId, fromMs: fromMs, toMs: toMs)
+    }
+
+    func clearLogDateFilter(hobbyId: Int64) {
+        if let d = repository.detail(hobbyId) {
+            filteredLogs = d.logs
+        }
     }
 
     // ── Export ────────────────────────────────────────────────────────────────
@@ -345,5 +390,11 @@ final class HobbyViewModel: ObservableObject {
         case .success: emit("Backup saved ✓")
         case .failure(let e): emit("Backup failed: \(e.localizedDescription)")
         }
+    }
+
+    // ── Sort order ─────────────────────────────────────────────────────────────
+
+    func reorderHobby(id: Int64, newOrder: Int) {
+        repository.updateSortOrder(id: id, order: newOrder)
     }
 }

@@ -8,10 +8,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -33,7 +33,8 @@ sealed class NavState {
 enum class SortBy(val label: String) {
     DueSoon("Due soon"),
     RecentActivity("Recent"),
-    Alphabetical("A–Z")
+    Alphabetical("A–Z"),
+    Custom("Custom")
 }
 
 data class SnackbarEvent(
@@ -54,6 +55,8 @@ class HobbyViewModel(
     val soundEnabled: StateFlow<Boolean>        = settingsPreferences.soundEnabled
     val vibrateEnabled: StateFlow<Boolean>      = settingsPreferences.vibrateEnabled
     val streakRescueEnabled: StateFlow<Boolean> = settingsPreferences.streakRescueEnabled
+    val customSoundUri: StateFlow<String?>      = settingsPreferences.customSoundUri
+    val playbackDurationSeconds: StateFlow<Int>    = settingsPreferences.playbackDurationSeconds
 
     fun setSoundEnabled(enabled: Boolean)        = settingsPreferences.setSound(enabled)
     fun setVibrateEnabled(enabled: Boolean)      = settingsPreferences.setVibrate(enabled)
@@ -62,6 +65,8 @@ class HobbyViewModel(
         if (enabled) StreakRescueScheduler.scheduleNext(appContext)
         else StreakRescueScheduler.cancel(appContext)
     }
+    fun setCustomSoundUri(uri: String?)          = settingsPreferences.setCustomSound(uri)
+    fun setPlaybackDurationSeconds(seconds: Int)    = settingsPreferences.setPlaybackDuration(seconds)
 
     val hobbies: StateFlow<List<Hobby>> = repository.hobbies
     val archivedHobbies: StateFlow<List<Hobby>> = repository.archivedHobbies
@@ -74,14 +79,24 @@ class HobbyViewModel(
     private val _detail = MutableStateFlow<HobbyDetail?>(null)
     val detail: StateFlow<HobbyDetail?> = _detail
 
-    private val _snackbar = Channel<SnackbarEvent>(Channel.BUFFERED)
-    val snackbarEvents = _snackbar.receiveAsFlow()
+    private val _snackbar = MutableSharedFlow<SnackbarEvent>(replay = 0, extraBufferCapacity = 8)
+    val snackbarEvents = _snackbar.asSharedFlow()
 
     private val _logSearchQuery = MutableStateFlow("")
     val logSearchQuery: StateFlow<String> = _logSearchQuery
 
     private val _logSearchResults = MutableStateFlow<List<LogSearchHit>>(emptyList())
     val logSearchResults: StateFlow<List<LogSearchHit>> = _logSearchResults
+
+    private val _filteredLogs = MutableStateFlow<List<HobbyLog>>(emptyList())
+    val filteredLogs: StateFlow<List<HobbyLog>> = _filteredLogs
+
+    private val _showRestoreConfirm = MutableStateFlow(false)
+    val showRestoreConfirm: StateFlow<Boolean> = _showRestoreConfirm
+
+    fun setShowRestoreConfirm(show: Boolean) {
+        _showRestoreConfirm.value = show
+    }
 
     init {
         viewModelScope.launch {
@@ -90,19 +105,31 @@ class HobbyViewModel(
         }
     }
 
-    // ── Navigation ────────────────────────────────────────────────────────────
+    // ── Onboarding ─────────────────────────────────────────────────────────────
+
+    val onboardingCompleted: Boolean
+        get() = settingsPreferences.onboardingCompleted
+
+    fun completeOnboarding() = settingsPreferences.setOnboardingCompleted()
+
+    // ── Snackbar helper ─────────────────────────────────────────────────────────
+
+    private fun snack(event: SnackbarEvent) {
+        _snackbar.tryEmit(event)
+    }
+
+    // ── Navigation ───────────────────────────────────────────────────────────
 
     fun openDetail(id: Long) {
         viewModelScope.launch {
             val d = repository.detail(id)
             if (d == null) {
-                // Tracker may have been deleted/archived between scheduling the notification
-                // and the user tapping it. Stay on Home rather than rendering an empty detail.
-                _snackbar.send(SnackbarEvent("That tracker is no longer available"))
+                snack(SnackbarEvent("That tracker is no longer available"))
                 _navState.value = NavState.Home
                 return@launch
             }
             _detail.value = d
+            _filteredLogs.value = d.logs
             _navState.value = NavState.Detail(id)
         }
     }
@@ -110,15 +137,22 @@ class HobbyViewModel(
     fun goHome() {
         _navState.value = NavState.Home
         _detail.value = null
+        _filteredLogs.value = emptyList()
         viewModelScope.launch { repository.refresh() }
     }
+
+    fun refresh() = viewModelScope.launch { repository.refresh() }
 
     fun openArchive()  { _navState.value = NavState.Archive  }
     fun openSettings() { _navState.value = NavState.Settings }
     fun openAbout()    { _navState.value = NavState.About    }
 
     fun refreshDetail(id: Long) {
-        viewModelScope.launch { _detail.value = repository.detail(id) }
+        viewModelScope.launch {
+            val d = repository.detail(id)
+            _detail.value = d
+            _filteredLogs.value = d?.logs ?: emptyList()
+        }
     }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
@@ -142,27 +176,31 @@ class HobbyViewModel(
                 trimmed, category.ifBlank { "General" }, notes, reminderAt, recurrence, weeklyGoal
             )
             if (reminderAt != null) scheduleReminder(appContext, id, trimmed, reminderAt)
-            _snackbar.send(SnackbarEvent("Tracker \"$trimmed\" created ✓"))
-            NextDueWidgetProvider.refreshAll(appContext)
+            snack(SnackbarEvent("Tracker \"$trimmed\" created ✓"))
+            refreshWidgets()
         }
+    }
+
+    private fun refreshWidgets() {
+        NextDueWidgetProvider.refreshAll(appContext)
+        StreakWidgetProvider.refreshAll(appContext)
     }
 
     fun updateHobby(id: Long, name: String, category: String, notes: String, weeklyGoal: Int = 0) {
         viewModelScope.launch {
             repository.updateHobby(id, name, category, notes, weeklyGoal)
-            _snackbar.send(SnackbarEvent("Tracker updated ✓"))
+            snack(SnackbarEvent("Tracker updated ✓"))
             refreshDetail(id)
         }
     }
 
     fun deleteHobby(id: Long, name: String) {
         viewModelScope.launch {
-            // Snapshot before deleting so Undo can restore the hobby and its (cascaded) logs.
             val snapshot = repository.snapshotHobby(id)
             cancelReminder(appContext, id)
             repository.deleteHobby(id)
-            NextDueWidgetProvider.refreshAll(appContext)
-            _snackbar.send(SnackbarEvent(
+            refreshWidgets()
+            snack(SnackbarEvent(
                 "\"$name\" deleted",
                 action = if (snapshot != null) "Undo" else null,
                 onAction = snapshot?.let { { restoreDeletedHobby(it) } }
@@ -174,20 +212,19 @@ class HobbyViewModel(
     private fun restoreDeletedHobby(snapshot: HobbyDetail) {
         viewModelScope.launch {
             repository.restoreHobbySnapshot(snapshot)
-            // Re-arm a future reminder if the restored hobby had one pending.
             val ts = snapshot.hobby.nextReminderAt
             if (ts != null && ts > System.currentTimeMillis()) {
                 scheduleReminder(appContext, snapshot.hobby.id, snapshot.hobby.name, ts)
             }
-            NextDueWidgetProvider.refreshAll(appContext)
-            _snackbar.send(SnackbarEvent("\"${snapshot.hobby.name}\" restored"))
+            refreshWidgets()
+            snack(SnackbarEvent("\"${snapshot.hobby.name}\" restored"))
         }
     }
 
     fun togglePin(hobby: Hobby) {
         viewModelScope.launch {
             repository.togglePin(hobby.id, hobby.isPinned)
-            _snackbar.send(SnackbarEvent(if (hobby.isPinned) "Unpinned" else "Pinned to top 📌"))
+            snack(SnackbarEvent(if (hobby.isPinned) "Unpinned" else "Pinned to top 📌"))
         }
     }
 
@@ -195,8 +232,8 @@ class HobbyViewModel(
         viewModelScope.launch {
             cancelReminder(appContext, id)
             repository.archiveHobby(id)
-            NextDueWidgetProvider.refreshAll(appContext)
-            _snackbar.send(SnackbarEvent("\"$name\" archived", action = "Undo", onAction = { restoreHobby(id, name) }))
+            refreshWidgets()
+            snack(SnackbarEvent("\"$name\" archived", action = "Undo", onAction = { restoreHobby(id, name) }))
             if (_navState.value is NavState.Detail) goHome()
         }
     }
@@ -205,13 +242,45 @@ class HobbyViewModel(
         viewModelScope.launch {
             repository.restoreHobby(id)
             // Re-arm reminder if there was one in the future
-            val h = repository.hobbyByIdSync(id)
+            val h = withContext(Dispatchers.IO) { repository.hobbyByIdSync(id) }
             val ts = h?.nextReminderAt
             if (h != null && ts != null && ts > System.currentTimeMillis()) {
                 scheduleReminder(appContext, h.id, h.name, ts)
             }
-            NextDueWidgetProvider.refreshAll(appContext)
-            _snackbar.send(SnackbarEvent("\"$name\" restored"))
+            refreshWidgets()
+            snack(SnackbarEvent("\"$name\" restored"))
+        }
+    }
+
+    fun bulkArchive(ids: List<Long>) {
+        viewModelScope.launch {
+            ids.forEach { id ->
+                cancelReminder(appContext, id)
+                repository.archiveHobby(id)
+            }
+            refreshWidgets()
+            snack(SnackbarEvent("${ids.size} trackers archived"))
+        }
+    }
+
+    fun bulkDelete(ids: List<Long>) {
+        viewModelScope.launch {
+            ids.forEach { id ->
+                cancelReminder(appContext, id)
+                repository.deleteHobby(id)
+            }
+            refreshWidgets()
+            snack(SnackbarEvent("${ids.size} trackers deleted"))
+        }
+    }
+
+    fun bulkTogglePin(hobbiesToPin: List<Hobby>) {
+        viewModelScope.launch {
+            val anyUnpinned = hobbiesToPin.any { !it.isPinned }
+            hobbiesToPin.forEach { hobby ->
+                repository.togglePin(hobby.id, !anyUnpinned)
+            }
+            snack(SnackbarEvent(if (anyUnpinned) "Pinned ${hobbiesToPin.size} trackers 📌" else "Unpinned ${hobbiesToPin.size} trackers"))
         }
     }
 
@@ -221,9 +290,9 @@ class HobbyViewModel(
         viewModelScope.launch {
             repository.updateReminder(hobby.id, reminderAt, recurrence)
             scheduleReminder(appContext, hobby.id, hobby.name, reminderAt)
-            _snackbar.send(SnackbarEvent("Reminder set for ${formatDate(reminderAt)} 🔔"))
+            snack(SnackbarEvent("Reminder set for ${formatDate(reminderAt)} 🔔"))
             refreshDetail(hobby.id)
-            NextDueWidgetProvider.refreshAll(appContext)
+            refreshWidgets()
         }
     }
 
@@ -231,9 +300,9 @@ class HobbyViewModel(
         viewModelScope.launch {
             cancelReminder(appContext, hobby.id)
             repository.updateReminder(hobby.id, null, Recurrence.None)
-            _snackbar.send(SnackbarEvent("Reminder cleared"))
+            snack(SnackbarEvent("Reminder cleared"))
             refreshDetail(hobby.id)
-            NextDueWidgetProvider.refreshAll(appContext)
+            refreshWidgets()
         }
     }
 
@@ -242,15 +311,14 @@ class HobbyViewModel(
     fun addLog(hobbyId: Long, entry: String, rating: Int?, photoUri: String? = null) {
         if (entry.isBlank() && photoUri == null) return
         viewModelScope.launch {
-            // Snapshot before so we can detect newly-earned achievements after the insert.
             val beforeDetail = repository.detail(hobbyId)
             val beforeSnapshot = beforeDetail?.let {
                 AchievementSnapshot.from(it.hobby, it.logs)
             }
 
-            repository.addLog(hobbyId, entry, rating, photoUri)
+            val logId = repository.addLog(hobbyId, entry, rating, photoUri)
             refreshDetail(hobbyId)
-            NextDueWidgetProvider.refreshAll(appContext)
+            refreshWidgets()
 
             val afterDetail = repository.detail(hobbyId)
             val newAchievements = if (beforeSnapshot != null && afterDetail != null) {
@@ -262,15 +330,23 @@ class HobbyViewModel(
 
             if (newAchievements.isNotEmpty()) {
                 for (a in newAchievements) {
-                    _snackbar.send(SnackbarEvent("${a.emoji} ${a.title} unlocked — ${a.tagline}"))
+                    snack(SnackbarEvent("${a.emoji} ${a.title} unlocked — ${a.tagline}"))
                 }
             } else {
-                _snackbar.send(SnackbarEvent(Affirmations.pick()))
+                // CX5: Quick-log undo support
+                val undoAction = if (logId > 0L) SnackbarEvent(
+                    Affirmations.pick(),
+                    action = "Undo",
+                    onAction = {
+                        viewModelScope.launch {
+                            repository.deleteLog(logId)
+                            refreshDetail(hobbyId)
+                        }
+                    }
+                ) else SnackbarEvent(Affirmations.pick())
+                snack(undoAction)
             }
 
-            // After a successful save, drop the user back to Home so the snackbar /
-            // achievement appears against the dashboard. They can re-open the tracker
-            // from the home list if they want to keep adding entries.
             if (_navState.value is NavState.Detail) goHome()
         }
     }
@@ -280,7 +356,7 @@ class HobbyViewModel(
             val snapshot = repository.fetchLog(logId) ?: return@launch
             repository.deleteLog(logId)
             refreshDetail(hobbyId)
-            _snackbar.send(SnackbarEvent(
+            snack(SnackbarEvent(
                 "Log entry deleted",
                 action = "Undo",
                 onAction = {
@@ -293,15 +369,38 @@ class HobbyViewModel(
         }
     }
 
-    /**
-     * Persist a content-Uri photo into the app's private filesDir/photos/
-     * so we can keep the URI valid after the picker permission expires.
-     * Returns a `file://` URI usable inside the app and shareable via FileProvider.
-     */
+    // ── Log editing ───────────────────────────────────────────────────────────
+
+    fun updateLog(hobbyId: Long, logId: Long, entry: String, rating: Int?, photoUri: String?) {
+        viewModelScope.launch {
+            repository.updateLog(logId, entry, rating, photoUri)
+            refreshDetail(hobbyId)
+            snack(SnackbarEvent("Log updated ✓"))
+        }
+    }
+
     suspend fun importPhoto(srcUri: Uri): String? = withContext(Dispatchers.IO) {
         try {
             val dir = File(appContext.filesDir, "photos").apply { mkdirs() }
             val target = File(dir, "log_${System.currentTimeMillis()}.jpg")
+            appContext.contentResolver.openInputStream(srcUri)?.use { input ->
+                FileOutputStream(target).use { out -> input.copyTo(out) }
+            } ?: return@withContext null
+            target.toURI().toString()
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    /**
+     * Persist a content-Uri sound into the app's private filesDir/sounds/
+     * so we can keep the URI valid after picker permission expires.
+     * Returns a `file://` URI usable inside the app.
+     */
+    suspend fun importSound(srcUri: Uri): String? = withContext(Dispatchers.IO) {
+        try {
+            val dir = File(appContext.filesDir, "sounds").apply { mkdirs() }
+            val target = File(dir, "sound_${System.currentTimeMillis()}.mp3")
             appContext.contentResolver.openInputStream(srcUri)?.use { input ->
                 FileOutputStream(target).use { out -> input.copyTo(out) }
             } ?: return@withContext null
@@ -350,6 +449,19 @@ class HobbyViewModel(
         }
     }
 
+    fun filterLogsByDateRange(hobbyId: Long, fromMs: Long, toMs: Long) {
+        viewModelScope.launch {
+            _filteredLogs.value = repository.searchLogsByDateRange(hobbyId, fromMs, toMs)
+        }
+    }
+
+    fun clearLogDateFilter(hobbyId: Long) {
+        viewModelScope.launch {
+            val d = repository.detail(hobbyId)
+            _filteredLogs.value = d?.logs ?: emptyList()
+        }
+    }
+
     // ── Export ────────────────────────────────────────────────────────────────
 
     fun exportLogs(context: Context) {
@@ -391,9 +503,9 @@ class HobbyViewModel(
                 val payload = BackupCodec.encode(repository.allHobbiesSync(), repository.allLogsSync())
                 context.contentResolver.openOutputStream(dest)?.use { it.write(payload.toByteArray()) }
                     ?: throw IllegalStateException("Could not open destination")
-                _snackbar.send(SnackbarEvent("Backup saved ✓"))
+                _snackbar.tryEmit(SnackbarEvent("Backup saved ✓"))
             } catch (t: Throwable) {
-                _snackbar.send(SnackbarEvent("Backup failed: ${t.message ?: "unknown"}"))
+                _snackbar.tryEmit(SnackbarEvent("Backup failed: ${t.message ?: "unknown"}"))
             }
         }
     }
@@ -412,12 +524,18 @@ class HobbyViewModel(
                         scheduleReminder(appContext, h.id, h.name, ts)
                     }
                 }
-                NextDueWidgetProvider.refreshAll(appContext)
-                _snackbar.send(SnackbarEvent("Restored ${hobbies.size} trackers"))
+                refreshWidgets()
+                _snackbar.tryEmit(SnackbarEvent("Restored ${hobbies.size} trackers"))
             } catch (t: Throwable) {
-                _snackbar.send(SnackbarEvent("Restore failed: ${t.message ?: "unknown"}"))
+                _snackbar.tryEmit(SnackbarEvent("Restore failed: ${t.message ?: "unknown"}"))
             }
         }
+    }
+
+    // ── Sort order ─────────────────────────────────────────────────────────────
+
+    fun reorderHobby(id: Long, newOrder: Int) {
+        viewModelScope.launch { repository.updateSortOrder(id, newOrder) }
     }
 
     // ── Streak / formatting helpers ──────────────────────────────────────────

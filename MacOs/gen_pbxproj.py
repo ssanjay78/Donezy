@@ -24,7 +24,8 @@ APP = [
     "Donezy/SnackbarHost.swift", "Donezy/CreateTrackerSheet.swift",
     "Donezy/HomeScreen.swift", "Donezy/DetailScreen.swift",
     "Donezy/SettingsScreen.swift", "Donezy/ArchiveScreen.swift",
-    "Donezy/AboutScreen.swift",
+    "Donezy/AboutScreen.swift", "Donezy/NotificationSoundPlayer.swift",
+    "Donezy/OnboardingScreen.swift",
 ]
 WIDGET = ["DonezyWidget/NextDueWidget.swift"]
 

@@ -51,7 +51,8 @@ data class Hobby(
     val isArchived: Boolean = false,
     val reminderIntervalHours: Long = 0L,   // legacy; mirrors recurrence when Hourly
     val recurrence: Recurrence = Recurrence.None,
-    val weeklyGoal: Int = 0                  // 0 = no goal
+    val weeklyGoal: Int = 0,                 // 0 = no goal
+    val sortOrder: Int = 0                   // custom manual sort order
 )
 
 data class HobbyLog(

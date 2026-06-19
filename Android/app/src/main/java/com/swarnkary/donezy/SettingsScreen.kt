@@ -1,11 +1,15 @@
 package com.swarnkary.donezy
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
@@ -21,6 +25,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,9 +35,12 @@ fun SettingsScreen(viewModel: HobbyViewModel) {
     val vibrate by viewModel.vibrateEnabled.collectAsState()
     val streakRescue by viewModel.streakRescueEnabled.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val customSoundUri by viewModel.customSoundUri.collectAsState()
+    val playbackDurationSeconds by viewModel.playbackDurationSeconds.collectAsState()
 
     var showThemeDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     BackHandler { viewModel.goHome() }
 
@@ -61,10 +70,33 @@ fun SettingsScreen(viewModel: HobbyViewModel) {
             SettingsToggleRow(
                 icon = Icons.Default.VolumeUp,
                 title = "Sound",
-                subtitle = "Play the system notification sound when a reminder fires",
+                subtitle = "Play notification sound when a reminder fires",
                 checked = sound,
                 onChange = { viewModel.setSoundEnabled(it) }
             )
+            if (sound) {
+                val selectSoundLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument()
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        scope.launch {
+                            val savedPath = viewModel.importSound(uri)
+                            viewModel.setCustomSoundUri(savedPath)
+                        }
+                    }
+                }
+
+                SettingsSoundRow(
+                    customSoundUri = customSoundUri,
+                    onPickSound = { selectSoundLauncher.launch(arrayOf("audio/*")) },
+                    onClearSound = { viewModel.setCustomSoundUri(null) }
+                )
+
+                SettingsPlaybackDurationRow(
+                    playbackDurationSeconds = playbackDurationSeconds,
+                    onPlaybackDurationChange = { viewModel.setPlaybackDurationSeconds(it) }
+                )
+            }
             SettingsToggleRow(
                 icon = Icons.Default.Vibration,
                 title = "Vibrate",
@@ -208,6 +240,77 @@ private fun SettingsClickRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.Transparent)
+        }
+    }
+}
+
+@Composable
+private fun SettingsSoundRow(
+    customSoundUri: String?,
+    onPickSound: () -> Unit,
+    onClearSound: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 0.dp,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        onClick = onPickSound
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(Icons.Default.VolumeUp, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f)) {
+                Text("Notification sound", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (customSoundUri == null) "Default system sound" else "Custom: ${customSoundUri.substringAfterLast("/")}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (customSoundUri != null) {
+                IconButton(onClick = onClearSound) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear custom sound")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsPlaybackDurationRow(
+    playbackDurationSeconds: Int,
+    onPlaybackDurationChange: (Int) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f)) {
+                    Text("Playback duration", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("Play notification sound for $playbackDurationSeconds seconds", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Slider(
+                value = playbackDurationSeconds.toFloat(),
+                onValueChange = { onPlaybackDurationChange(it.roundToInt()) },
+                valueRange = 1f..30f,
+                steps = 28
+            )
         }
     }
 }

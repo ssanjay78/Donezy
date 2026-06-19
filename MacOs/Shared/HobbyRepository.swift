@@ -42,24 +42,35 @@ final class HobbyRepository: ObservableObject {
     }
 
     /// Returns one row per (hobby, local day) so streaks can be computed in O(D)
-    /// per tracker. SQLite's strftime handles the UTC→local conversion.
+    /// per tracker. Uses Calendar to compute local timezone midnights safely (DST-safe).
     private func queryLogDays() -> [Int64: [Int64]] {
         var map: [Int64: [Int64]] = [:]
-        let sql = """
-            SELECT hobby_id,
-                   CAST(strftime('%s', created_at / 1000, 'unixepoch', 'localtime', 'start of day') AS INTEGER) * 1000 AS day_ms
-            FROM logs
-            GROUP BY hobby_id, day_ms
-            ORDER BY hobby_id ASC, day_ms DESC
-            """
+        let sql = "SELECT hobby_id, created_at FROM logs ORDER BY hobby_id ASC, created_at DESC"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK else { return map }
         defer { sqlite3_finalize(stmt) }
+        
+        let calendar = Calendar.current
+        var tempSets: [Int64: Set<Int64>] = [:]
+        
         while sqlite3_step(stmt) == SQLITE_ROW {
             let hid = sqlite3_column_int64(stmt, 0)
-            let day = sqlite3_column_int64(stmt, 1)
-            map[hid, default: []].append(day)
+            let createdAt = sqlite3_column_int64(stmt, 1)
+            
+            let date = Date(timeIntervalSince1970: Double(createdAt) / 1000.0)
+            let startOfDay = calendar.startOfDay(for: date)
+            let dayMs = Int64(startOfDay.timeIntervalSince1970 * 1000.0)
+            
+            if tempSets[hid] == nil {
+                tempSets[hid] = []
+            }
+            tempSets[hid]?.insert(dayMs)
         }
+        
+        for (hid, daysSet) in tempSets {
+            map[hid] = daysSet.sorted(by: >)
+        }
+        
         return map
     }
 
@@ -68,7 +79,7 @@ final class HobbyRepository: ObservableObject {
     private static let hobbyColumns = """
         id, name, category, notes, next_reminder_at,
         created_at, is_pinned, is_archived, reminder_interval_hours,
-        recurrence_type, recurrence_data, weekly_goal
+        recurrence_type, recurrence_data, weekly_goal, sort_order
         """
 
     private func queryHobbies(archived: Bool) -> [Hobby] {
@@ -99,7 +110,8 @@ final class HobbyRepository: ObservableObject {
             isArchived: sqlite3_column_int(stmt, 7) != 0,
             reminderIntervalHours: sqlite3_column_int64(stmt, 8),
             recurrence: Recurrence.decode(type: columnText(stmt, 9), data: columnText(stmt, 10)),
-            weeklyGoal: Int(sqlite3_column_int(stmt, 11))
+            weeklyGoal: Int(sqlite3_column_int(stmt, 11)),
+            sortOrder: Int(sqlite3_column_int(stmt, 12))
         )
     }
 
@@ -170,8 +182,8 @@ final class HobbyRepository: ObservableObject {
             let hSql = """
                 INSERT OR REPLACE INTO hobbies
                 (id, name, category, notes, next_reminder_at, created_at, is_pinned, is_archived,
-                 reminder_interval_hours, recurrence_type, recurrence_data, weekly_goal)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 reminder_interval_hours, recurrence_type, recurrence_data, weekly_goal, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
             var hStmt: OpaquePointer?
             sqlite3_prepare_v2(handle, hSql, -1, &hStmt, nil)
@@ -187,6 +199,7 @@ final class HobbyRepository: ObservableObject {
             bindText(hStmt, 10, type)
             bindText(hStmt, 11, data)
             sqlite3_bind_int(hStmt, 12, Int32(h.weeklyGoal))
+            sqlite3_bind_int(hStmt, 13, Int32(h.sortOrder))
             sqlite3_step(hStmt)
             sqlite3_finalize(hStmt)
 
@@ -254,7 +267,9 @@ final class HobbyRepository: ObservableObject {
             bindIntOrNull(stmt, 4, rating)
             bindTextOrNull(stmt, 5, photoUri)
             sqlite3_step(stmt)
-            return sqlite3_last_insert_rowid(handle)
+            let id = sqlite3_last_insert_rowid(handle)
+            refreshSyncLocked()
+            return id
         }
     }
 
@@ -262,6 +277,7 @@ final class HobbyRepository: ObservableObject {
     func insertLog(_ log: HobbyLog) -> Int64 {
         db.queue.sync {
             let id = insertLogLocked(log)
+            refreshSyncLocked()
             return id
         }
     }
@@ -284,7 +300,10 @@ final class HobbyRepository: ObservableObject {
     }
 
     func deleteLog(id: Int64) {
-        db.queue.sync { execBind("DELETE FROM logs WHERE id = ?", id) }
+        db.queue.sync {
+            execBind("DELETE FROM logs WHERE id = ?", id)
+            refreshSyncLocked()
+        }
     }
 
     func fetchLog(id: Int64) -> HobbyLog? {
@@ -446,8 +465,8 @@ final class HobbyRepository: ObservableObject {
                 let sql = """
                     INSERT OR REPLACE INTO hobbies
                     (id, name, category, notes, next_reminder_at, created_at, is_pinned, is_archived,
-                     reminder_interval_hours, recurrence_type, recurrence_data, weekly_goal)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     reminder_interval_hours, recurrence_type, recurrence_data, weekly_goal, sort_order)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """
                 var stmt: OpaquePointer?
                 sqlite3_prepare_v2(handle, sql, -1, &stmt, nil)
@@ -463,12 +482,92 @@ final class HobbyRepository: ObservableObject {
                 bindText(stmt, 10, type)
                 bindText(stmt, 11, data)
                 sqlite3_bind_int(stmt, 12, Int32(h.weeklyGoal))
+                sqlite3_bind_int(stmt, 13, Int32(h.sortOrder))
                 sqlite3_step(stmt)
                 sqlite3_finalize(stmt)
             }
             for l in logs { insertLogLocked(l) }
             exec("COMMIT")
             refreshSyncLocked()
+        }
+    }
+
+    // ── Log editing ───────────────────────────────────────────────────────────
+
+    func updateLog(id: Int64, entry: String, rating: Int?, photoUri: String?) {
+        db.queue.sync {
+            let sql = "UPDATE logs SET entry = ?, rating = ?, photo_uri = ? WHERE id = ?"
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(handle, sql, -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            bindText(stmt, 1, entry.trimmingCharacters(in: .whitespacesAndNewlines))
+            bindIntOrNull(stmt, 2, rating)
+            bindTextOrNull(stmt, 3, photoUri)
+            sqlite3_bind_int64(stmt, 4, id)
+            sqlite3_step(stmt)
+            refreshSyncLocked()
+        }
+    }
+
+    // ── Sort order ────────────────────────────────────────────────────────────
+
+    func updateSortOrder(id: Int64, order: Int) {
+        db.queue.sync {
+            let sql = "UPDATE hobbies SET sort_order = ? WHERE id = ?"
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(handle, sql, -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_int(stmt, 1, Int32(order))
+            sqlite3_bind_int64(stmt, 2, id)
+            sqlite3_step(stmt)
+            refreshSyncLocked()
+        }
+    }
+
+    // ── Date-range log search ─────────────────────────────────────────────────
+
+    func searchLogsByDateRange(hobbyId: Int64, fromMs: Int64, toMs: Int64) -> [HobbyLog] {
+        db.queue.sync {
+            let sql = """
+                SELECT id, hobby_id, entry, created_at, rating, photo_uri
+                FROM logs
+                WHERE hobby_id = ? AND created_at >= ? AND created_at <= ?
+                ORDER BY created_at DESC
+                """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_int64(stmt, 1, hobbyId)
+            sqlite3_bind_int64(stmt, 2, fromMs)
+            sqlite3_bind_int64(stmt, 3, toMs)
+            var out: [HobbyLog] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                out.append(logFrom(stmt))
+            }
+            return out
+        }
+    }
+
+    // ── Optimized streak candidates helper ──────────────────────────────
+
+    func streakCandidatesSync(minStreak: Int = 2) -> [(Hobby, Int)] {
+        db.queue.sync {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            let todayMs = Int64(today.timeIntervalSince1970 * 1000.0)
+            
+            let active = queryHobbies(archived: false)
+            let logDays = queryLogDays()
+            
+            return active.compactMap { hobby in
+                guard let days = logDays[hobby.id] else { return nil }
+                let streak = StreakMath.computeStreakFromDays(days)
+                let loggedToday = days.contains(todayMs)
+                if streak >= minStreak && !loggedToday {
+                    return (hobby, streak)
+                }
+                return nil
+            }
         }
     }
 

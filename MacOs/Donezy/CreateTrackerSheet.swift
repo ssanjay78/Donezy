@@ -65,6 +65,7 @@ struct CreateTrackerSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     TextField("Tracker name", text: $name)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled()
 
                     CategoryDropdown(selected: $category)
 
@@ -80,6 +81,7 @@ struct CreateTrackerSheet: View {
                         TextEditor(text: $notes)
                             .frame(minHeight: 90)
                             .padding(6)
+                            .autocorrectionDisabled()
                             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.onSurfaceVariant.opacity(0.4)))
                             .overlay(alignment: .topLeading) {
                                 if notes.isEmpty {
@@ -391,8 +393,13 @@ struct CategoryDropdown: View {
             ForEach(hobbyCategories, id: \.label) { option in
                 Button {
                     selected = option
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 } label: {
-                    Label("\(option.emoji)  \(option.label)", systemImage: selected.label == option.label ? "checkmark" : "")
+                    if selected.label == option.label {
+                        Label("\(option.emoji)  \(option.label)", systemImage: "checkmark")
+                    } else {
+                        Text("\(option.emoji)  \(option.label)")
+                    }
                 }
             }
         } label: {
@@ -402,7 +409,12 @@ struct CategoryDropdown: View {
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 12)).foregroundColor(theme.onSurfaceVariant)
             }
             .padding(12)
+            .background(Color.clear)
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.onSurfaceVariant.opacity(0.4)))
+            .contentShape(Rectangle())
         }
+        .simultaneousGesture(TapGesture().onEnded {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        })
     }
 }

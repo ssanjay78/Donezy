@@ -271,3 +271,28 @@ struct OutlinedCardView<Content: View>: View {
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(theme.onSurfaceVariant.opacity(0.25), lineWidth: 1))
     }
 }
+
+// ─── Screen Top Bar ─────────────────────────────────────────────────────────────
+
+/// Shared back-button top bar for the secondary screens.
+struct ScreenTopBar: View {
+    let title: String
+    let onBack: () -> Void
+    @Environment(\.theme) private var theme
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: onBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .padding(6)
+            }
+            .buttonStyle(.plain)
+            Text(title)
+                .font(.system(size: 22, weight: .semibold))
+            Spacer()
+        }
+        .foregroundColor(theme.onSurface)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+}

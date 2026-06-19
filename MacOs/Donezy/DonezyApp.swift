@@ -71,12 +71,18 @@ struct RootView: View {
     }
 
     @ViewBuilder private var content: some View {
-        switch viewModel.navState {
-        case .home:                 HomeScreen(viewModel: viewModel)
-        case .detail:               DetailScreen(viewModel: viewModel)
-        case .archive:              ArchiveScreen(viewModel: viewModel)
-        case .settings:             SettingsScreen(viewModel: viewModel)
-        case .about:                AboutScreen(viewModel: viewModel)
+        if !viewModel.onboardingCompleted {
+            OnboardingScreen(onComplete: {
+                viewModel.completeOnboarding()
+            })
+        } else {
+            switch viewModel.navState {
+            case .home:                 HomeScreen(viewModel: viewModel)
+            case .detail:               DetailScreen(viewModel: viewModel)
+            case .archive:              ArchiveScreen(viewModel: viewModel)
+            case .settings:             SettingsScreen(viewModel: viewModel)
+            case .about:                AboutScreen(viewModel: viewModel)
+            }
         }
     }
 }

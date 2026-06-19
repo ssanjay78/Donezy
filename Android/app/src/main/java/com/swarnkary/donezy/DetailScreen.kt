@@ -1,5 +1,16 @@
 package com.swarnkary.donezy
 
+import kotlin.math.roundToInt
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Shader
+import android.graphics.Typeface
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -7,8 +18,10 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,6 +32,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,15 +51,22 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import coil.compose.AsyncImagePainter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(viewModel: HobbyViewModel) {
     val detail by viewModel.detail.collectAsState()
+    val filteredLogs by viewModel.filteredLogs.collectAsState()
+    var editingLog by remember { mutableStateOf<HobbyLog?>(null) }
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     var logEntry      by remember { mutableStateOf("") }
     var logRating     by remember { mutableStateOf<Int?>(null) }
@@ -80,6 +103,9 @@ fun DetailScreen(viewModel: HobbyViewModel) {
 
     LaunchedEffect(Unit) {
         viewModel.snackbarEvents.collectLatest { event ->
+            if (event.message.contains("unlocked")) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
             val result = snackbarHostState.showSnackbar(
                 message = event.message,
                 actionLabel = event.action,
@@ -171,7 +197,7 @@ fun DetailScreen(viewModel: HobbyViewModel) {
                     val snapshot = remember(hobby, logs) { AchievementSnapshot.from(hobby, logs) }
                     val earned = remember(snapshot) { Achievements.earned(snapshot) }
                     if (hobby.weeklyGoal > 0 || earned.isNotEmpty()) {
-                        AchievementCard(snapshot, earned)
+                        AchievementCard(snapshot, earned, hobby.name)
                     }
                 }
             }
@@ -188,7 +214,10 @@ fun DetailScreen(viewModel: HobbyViewModel) {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(quickLogs) { preset ->
                                 AssistChip(
-                                    onClick = { viewModel.addLog(hobby.id, preset.entry, null) },
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.addLog(hobby.id, preset.entry, null)
+                                    },
                                     label = { Text(preset.label) }
                                 )
                             }
@@ -236,12 +265,31 @@ fun DetailScreen(viewModel: HobbyViewModel) {
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                 ) {
+                                    val painter = rememberAsyncImagePainter(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(pendingPhoto)
+                                            .crossfade(true)
+                                            .build()
+                                    )
                                     androidx.compose.foundation.Image(
-                                        painter = rememberAsyncImagePainter(pendingPhoto),
-                                        contentDescription = null,
+                                        painter = painter,
+                                        contentDescription = "Pending photo preview",
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
+                                    if (painter.state is AsyncImagePainter.State.Error) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.BrokenImage,
+                                                contentDescription = "Error loading image",
+                                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -259,6 +307,7 @@ fun DetailScreen(viewModel: HobbyViewModel) {
                             }
                             Button(
                                 onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     viewModel.addLog(hobby.id, logEntry, logRating, pendingPhoto)
                                     logEntry = ""
                                     logRating = null
@@ -285,11 +334,77 @@ fun DetailScreen(viewModel: HobbyViewModel) {
                 )
             }
 
-            item { SectionHeader("Log history", subtitle = "${logs.size} entries") }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SectionHeader(
+                            "Log history",
+                            subtitle = if (filteredLogs.size == logs.size) "${logs.size} entries" else "${filteredLogs.size} of ${logs.size} shown"
+                        )
+                        
+                        var showRangePicker by remember { mutableStateOf(false) }
+                        
+                        IconButton(onClick = { showRangePicker = true }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Filter by date")
+                        }
+                        
+                        if (showRangePicker) {
+                            val state = rememberDateRangePickerState()
+                            DatePickerDialog(
+                                onDismissRequest = { showRangePicker = false },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            val start = state.selectedStartDateMillis
+                                            val end = state.selectedEndDateMillis
+                                            if (start != null && end != null) {
+                                                viewModel.filterLogsByDateRange(hobby.id, start, end)
+                                            }
+                                            showRangePicker = false
+                                        },
+                                        enabled = state.selectedStartDateMillis != null && state.selectedEndDateMillis != null
+                                    ) {
+                                        Text("Apply")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showRangePicker = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            ) {
+                                DateRangePicker(
+                                    state = state,
+                                    modifier = Modifier.weight(1f).padding(16.dp)
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (filteredLogs.size < logs.size) {
+                        InputChip(
+                            selected = true,
+                            onClick = { viewModel.clearLogDateFilter(hobby.id) },
+                            label = { Text("Date Filter Active") },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear date filter",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+            }
 
-            if (logs.isEmpty()) item { EmptyLogState() }
+            if (filteredLogs.isEmpty()) item { EmptyLogState() }
 
-            items(logs, key = { it.id }) { log ->
+            items(filteredLogs, key = { it.id }) { log ->
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
                         if (value != SwipeToDismissBoxValue.Settled) {
@@ -302,7 +417,13 @@ fun DetailScreen(viewModel: HobbyViewModel) {
                     state = dismissState,
                     modifier = Modifier.animateItem(),
                     backgroundContent = { LogSwipeBackground(dismissState.targetValue) },
-                    content = { LogCard(log, onDelete = { viewModel.deleteLog(hobby.id, log.id) }) },
+                    content = {
+                        LogCard(
+                            log = log,
+                            onEdit = { editingLog = log },
+                            onDelete = { viewModel.deleteLog(hobby.id, log.id) }
+                        )
+                    },
                     enableDismissFromStartToEnd = false
                 )
             }
@@ -363,6 +484,81 @@ fun DetailScreen(viewModel: HobbyViewModel) {
             }
         )
     }
+
+    if (editingLog != null) {
+        val log = editingLog!!
+        var entryText by remember(log.id) { mutableStateOf(log.entry) }
+        var rating by remember(log.id) { mutableStateOf(log.rating) }
+        var photoUri by remember(log.id) { mutableStateOf(log.photoUri) }
+
+        val dialogPhotoPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickVisualMedia()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                scope.launch {
+                    photoUri = viewModel.importPhoto(uri)
+                }
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { editingLog = null },
+            title = { Text("Edit Log Entry") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = entryText,
+                        onValueChange = { entryText = it },
+                        label = { Text("Notes") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Column {
+                        Text("Rating", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        StarRatingRow(rating = rating, onRate = { rating = it })
+                    }
+
+                    if (photoUri != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Photo attached", style = MaterialTheme.typography.bodySmall)
+                            IconButton(onClick = { photoUri = null }) {
+                                Icon(Icons.Default.Clear, "Remove photo")
+                            }
+                        }
+                    } else {
+                        TextButton(onClick = {
+                            dialogPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }) {
+                            Icon(Icons.Default.CameraAlt, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add Photo")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        detail?.hobby?.let { h ->
+                            viewModel.updateLog(h.id, log.id, entryText, rating, photoUri)
+                        }
+                        editingLog = null
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingLog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 /** Bottom sheet letting the user pick where a log photo comes from: camera or gallery. */
@@ -400,7 +596,7 @@ private fun PhotoSourceSheet(
 // ─── Achievements + weekly goal ───────────────────────────────────────────────
 
 @Composable
-fun AchievementCard(snapshot: AchievementSnapshot, earned: List<Achievement>) {
+fun AchievementCard(snapshot: AchievementSnapshot, earned: List<Achievement>, hobbyName: String) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -437,7 +633,7 @@ fun AchievementCard(snapshot: AchievementSnapshot, earned: List<Achievement>) {
 
             if (earned.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(earned) { achievement -> AchievementChip(achievement) }
+                    items(earned) { achievement -> AchievementChip(achievement, hobbyName) }
                 }
             } else if (snapshot.weeklyGoal == 0) {
                 Text(
@@ -451,8 +647,12 @@ fun AchievementCard(snapshot: AchievementSnapshot, earned: List<Achievement>) {
 }
 
 @Composable
-private fun AchievementChip(achievement: Achievement) {
+private fun AchievementChip(achievement: Achievement, hobbyName: String) {
+    val context = LocalContext.current
     Surface(
+        onClick = {
+            shareAchievementCard(context, achievement, hobbyName)
+        },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.secondaryContainer
     ) {
@@ -468,7 +668,121 @@ private fun AchievementChip(achievement: Achievement) {
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
             )
+            Icon(
+                imageVector = Icons.Default.Share,
+                contentDescription = "Share",
+                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                modifier = Modifier.size(12.dp)
+            )
         }
+    }
+}
+
+private fun shareAchievementCard(context: Context, achievement: Achievement, hobbyName: String) {
+    val width = 800
+    val height = 800
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    // Draw background gradient
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val gradient = LinearGradient(
+        0f, 0f, width.toFloat(), height.toFloat(),
+        intArrayOf(0xFF6366F1.toInt(), 0xFFA855F7.toInt(), 0xFFEC4899.toInt()),
+        null,
+        Shader.TileMode.CLAMP
+    )
+    paint.shader = gradient
+    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+    paint.shader = null
+
+    // Draw card overlay
+    paint.color = 0x22FFFFFF
+    val margin = 50f
+    val rect = RectF(margin, margin, width - margin, height - margin)
+    canvas.drawRoundRect(rect, 36f, 36f, paint)
+
+    // Draw card border
+    paint.color = 0x55FFFFFF
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 3f
+    canvas.drawRoundRect(rect, 36f, 36f, paint)
+    paint.style = Paint.Style.FILL
+
+    // Draw emoji
+    paint.textSize = 120f
+    paint.textAlign = Paint.Align.CENTER
+    paint.color = 0xFFFFFFFF.toInt()
+    canvas.drawText(achievement.emoji, width / 2f, 280f, paint)
+
+    // Draw achievement title
+    paint.textSize = 44f
+    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    canvas.drawText(achievement.title, width / 2f, 410f, paint)
+
+    // Draw tagline
+    paint.textSize = 28f
+    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    paint.color = 0xEEFFFFFF.toInt()
+    
+    val tagline = achievement.tagline
+    val words = tagline.split(" ")
+    val line1 = StringBuilder()
+    val line2 = StringBuilder()
+    var line1Done = false
+    for (word in words) {
+        if (!line1Done && line1.length + word.length < 32) {
+            if (line1.isNotEmpty()) line1.append(" ")
+            line1.append(word)
+        } else {
+            line1Done = true
+            if (line2.isNotEmpty()) line2.append(" ")
+            line2.append(word)
+        }
+    }
+    
+    if (line2.isEmpty()) {
+        canvas.drawText(line1.toString(), width / 2f, 490f, paint)
+    } else {
+        canvas.drawText(line1.toString(), width / 2f, 475f, paint)
+        canvas.drawText(line2.toString(), width / 2f, 515f, paint)
+    }
+
+    // Draw tracker context
+    paint.textSize = 26f
+    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+    paint.color = 0xCCFFFFFF.toInt()
+    canvas.drawText("Unlocked in $hobbyName", width / 2f, 580f, paint)
+
+    // Draw app name / branding
+    paint.textSize = 36f
+    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    paint.color = 0xFFFFFFFF.toInt()
+    canvas.drawText("Donezy", width / 2f, 680f, paint)
+
+    paint.textSize = 20f
+    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    paint.color = 0x88FFFFFF.toInt()
+    canvas.drawText("Plan it · Do it · Done it.", width / 2f, 715f, paint)
+
+    // Save bitmap to file and share
+    val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+    val file = java.io.File(dir, "achievement_${achievement.id}.png")
+    try {
+        java.io.FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "Achievement Unlocked: ${achievement.title}!")
+            putExtra(Intent.EXTRA_TEXT, "I just unlocked the '${achievement.title}' achievement in Donezy for '$hobbyName'! ${achievement.emoji}")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share Achievement"))
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }
 
@@ -477,10 +791,10 @@ private fun AchievementChip(achievement: Achievement) {
 @Composable
 fun InsightsCard(logs: List<HobbyLog>) {
     val zone = remember { ZoneId.systemDefault() }
-    val today = remember { LocalDate.now(zone) }
+    val today = remember(LocalDate.now(zone)) { LocalDate.now(zone) }
     // 30-day window, oldest at the start so today is rightmost (matches how charts read).
     val windowDays = 30
-    val days = remember { (0 until windowDays).map { today.minusDays((windowDays - 1 - it).toLong()) } }
+    val days = remember(today) { (0 until windowDays).map { today.minusDays((windowDays - 1 - it).toLong()) } }
 
     val countsByDay: Map<LocalDate, Int> = remember(logs) {
         logs.groupBy { Instant.ofEpochMilli(it.createdAt).atZone(zone).toLocalDate() }
@@ -539,6 +853,80 @@ fun InsightsCard(logs: List<HobbyLog>) {
                         weekdayFmt = weekdayFmt,
                         dayFmt = dayFmt
                     )
+                }
+            }
+
+            val ratedLogs = remember(logs) { logs.filter { it.rating != null } }
+            val avgRating = remember(ratedLogs) {
+                if (ratedLogs.isNotEmpty()) ratedLogs.map { it.rating!! }.average() else null
+            }
+
+            val timeOfDayDistribution = remember(logs) {
+                val distribution = linkedMapOf("Morning" to 0, "Afternoon" to 0, "Evening" to 0, "Night" to 0)
+                logs.forEach { log ->
+                    val hour = Instant.ofEpochMilli(log.createdAt).atZone(zone).hour
+                    when (hour) {
+                        in 5..11 -> distribution["Morning"] = distribution["Morning"]!! + 1
+                        in 12..16 -> distribution["Afternoon"] = distribution["Afternoon"]!! + 1
+                        in 17..20 -> distribution["Evening"] = distribution["Evening"]!! + 1
+                        else -> distribution["Night"] = distribution["Night"]!! + 1
+                    }
+                }
+                distribution
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (avgRating != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("Avg. rating:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        StarDisplay(avgRating.roundToInt())
+                        Text(
+                            String.format("%.1f / 5.0", avgRating),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Text("Time of Day Distribution", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val maxDist = timeOfDayDistribution.values.maxOrNull()?.coerceAtLeast(1) ?: 1
+                    timeOfDayDistribution.forEach { (label, count) ->
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(count.toFloat() / maxDist)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                            Text("$count logs", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         }
@@ -770,21 +1158,27 @@ private fun HeroDetailMetric(label: String, value: String, modifier: Modifier = 
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = Color.White.copy(alpha = 0.18f)
+        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
     ) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f))
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f))
         }
     }
 }
 
 // ─── Log Card ─────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun LogCard(log: HobbyLog, onDelete: () -> Unit) {
+fun LogCard(log: HobbyLog, onEdit: () -> Unit, onDelete: () -> Unit) {
     OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = onEdit
+            ),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -822,12 +1216,38 @@ fun LogCard(log: HobbyLog, onDelete: () -> Unit) {
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
+                    val painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(uri)
+                            .crossfade(true)
+                            .build()
+                    )
                     androidx.compose.foundation.Image(
-                        painter = rememberAsyncImagePainter(uri),
-                        contentDescription = null,
+                        painter = painter,
+                        contentDescription = "Log entry photo",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
+                    val isError = painter.state is AsyncImagePainter.State.Error
+                    if (isError) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Icon(
+                                Icons.Default.BrokenImage,
+                                contentDescription = "Broken image",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Image not found",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }

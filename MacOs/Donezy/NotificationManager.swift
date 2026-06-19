@@ -57,17 +57,39 @@ enum NotificationManager {
         center.removePendingNotificationRequests(withIdentifiers: [identifier(for: hobbyId)])
 
         let now = nowMillis()
-        let fireDate = Date(timeIntervalSince1970: Double(max(triggerAt, now + 1000)) / 1000.0)
-        let comps = Calendar.current.dateComponents(
-            [.year, .month, .day, .hour, .minute, .second], from: fireDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        let diff = triggerAt - now
+        
+        let trigger: UNNotificationTrigger?
+        if diff <= 1000 {
+            trigger = nil
+        } else if diff <= 65_000 {
+            let delaySeconds = Double(diff) / 1000.0
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: delaySeconds, repeats: false)
+        } else {
+            let fireDate = Date(timeIntervalSince1970: Double(triggerAt) / 1000.0)
+            let comps = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute, .second], from: fireDate)
+            trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        }
 
         let content = UNMutableNotificationContent()
         content.title = hobbyName.isEmpty ? "your tracker" : hobbyName
         content.body = "Tap to log progress."
         content.categoryIdentifier = categoryId
         content.userInfo = [hobbyIdKey: hobbyId]
-        content.sound = sound ? .default : nil
+        
+        let settings = SettingsPreferences()
+        if sound {
+            if let customSound = settings.customSoundUri, !customSound.isEmpty {
+                // Play custom sound file located in Library/Sounds (needs filename like custom_sound.wav/mp3)
+                content.sound = UNNotificationSound(named: UNNotificationSoundName(rawValue: customSound))
+            } else {
+                content.sound = .default
+            }
+        } else {
+            content.sound = nil
+        }
+        
         if let attachment = brandAttachment() { content.attachments = [attachment] }
 
         let request = UNNotificationRequest(identifier: identifier(for: hobbyId), content: content, trigger: trigger)
@@ -165,18 +187,7 @@ enum NotificationManager {
     /// Pick the highest at-risk streak (>=2, not logged today), matching Android's logic.
     private static func streakRescueCandidate() -> (hobby: Hobby, streak: Int, total: Int)? {
         let repo = HobbyRepository.shared
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let candidates: [(Hobby, Int)] = repo.allHobbiesSync()
-            .filter { !$0.isArchived }
-            .compactMap { hobby in
-                guard let logs = repo.detail(hobby.id)?.logs else { return nil }
-                let streak = StreakMath.computeStreak(logs)
-                let loggedToday = logs.contains {
-                    calendar.startOfDay(for: Date(timeIntervalSince1970: Double($0.createdAt) / 1000.0)) == today
-                }
-                return (streak >= 2 && !loggedToday) ? (hobby, streak) : nil
-            }
+        let candidates = repo.streakCandidatesSync(minStreak: 2)
         guard let best = candidates.max(by: { $0.1 < $1.1 }) else { return nil }
         return (best.0, best.1, candidates.count)
     }
