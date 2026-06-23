@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        NotificationSoundPlayer.stop()
+        SoundPlaybackService.stop(this)
     }
 }
 

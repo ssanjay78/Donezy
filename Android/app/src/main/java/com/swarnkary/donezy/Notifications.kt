@@ -39,14 +39,21 @@ import java.time.ZonedDateTime
 // below so we can change sound/vibration without forcing a Clear Data.
 
 private const val CHANNEL_STREAK       = "streak_rescue"
+// Low-importance channel for the foreground "sound playback" service notification.
+// IMPORTANCE_MIN keeps it out of the status bar and collapsed at the bottom of the shade.
+private const val CHANNEL_PLAYBACK     = "sound_playback"
 private const val EXTRA_HOBBY_ID       = "hobby_id"
 private const val EXTRA_HOBBY_NAME     = "hobby_name"
 private const val EXTRA_SNOOZE_AT      = "snooze_at"
+private const val EXTRA_SOUND_URI      = "sound_uri"
+private const val EXTRA_SOUND_DURATION = "sound_duration"
 private const val ACTION_STREAK_RESCUE = "com.swarnkary.donezy.STREAK_RESCUE"
 const val ACTION_LOG_DONE              = "com.swarnkary.donezy.REMINDER_LOG_DONE"
 const val ACTION_REMINDER_DISMISS      = "com.swarnkary.donezy.REMINDER_DISMISS"
 const val ACTION_REMINDER_SNOOZE       = "com.swarnkary.donezy.REMINDER_SNOOZE"
+const val ACTION_STOP_SOUND            = "com.swarnkary.donezy.STOP_SOUND"
 private const val STREAK_REQUEST_CODE  = 0x57Ea_C0DE
+private const val SOUND_SERVICE_NOTIF_ID = 0x50_0001
 // Per-hobby PendingIntent request codes derive from hobbyId.toInt() + a per-action offset
 // so the three action buttons on one notification don't collide with each other or the
 // content-tap intent (which uses the bare hobbyId.toInt()).
@@ -99,6 +106,18 @@ fun ensureNotificationChannel(context: Context) {
                 .apply { description = "End-of-day nudge to keep your streak alive" }
         )
     }
+
+    if (mgr.getNotificationChannel(CHANNEL_PLAYBACK) == null) {
+        mgr.createNotificationChannel(
+            NotificationChannel(CHANNEL_PLAYBACK, "Reminder sound", NotificationManager.IMPORTANCE_MIN)
+                .apply {
+                    description = "Temporary notification while a reminder sound is playing"
+                    setShowBadge(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+        )
+    }
 }
 
 // ─── Reminder alarm scheduling ────────────────────────────────────────────────
@@ -133,31 +152,30 @@ fun scheduleReminder(context: Context, hobbyId: Long, hobbyName: String, trigger
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
     val mgr = context.getSystemService(AlarmManager::class.java)
-    val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) mgr.canScheduleExactAlarms() else true
+
+    // We use setAlarmClock() as the PRIMARY path. Unlike setExactAndAllowWhileIdle() — which
+    // Android still batches into Doze maintenance windows and can defer by tens of seconds
+    // (the ~35s lag) — setAlarmClock() is delivered at the precise time even in Doze, and it
+    // does NOT require the SCHEDULE_EXACT_ALARM permission. The trade-off (a visible "alarm
+    // set" icon + an optional show-app intent) is acceptable for an on-time reminder.
+    val showIntent = Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        putExtra(EXTRA_HOBBY_ID, hobbyId)
+    }
+    val showPending = PendingIntent.getActivity(
+        context, hobbyId.toInt() + RC_OFFSET_SHOW, showIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
     try {
-        if (canExact) {
-            mgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-        } else {
-            val showIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            }
-            val showPending = PendingIntent.getActivity(
-                context, hobbyId.toInt() + RC_OFFSET_SHOW, showIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            mgr.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPending), pending)
-        }
-    } catch (_: SecurityException) {
-        val showIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        val showPending = PendingIntent.getActivity(
-            context, hobbyId.toInt() + RC_OFFSET_SHOW, showIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        mgr.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPending), pending)
+    } catch (_: Exception) {
+        // Extremely defensive fallback: if setAlarmClock is somehow unavailable, fire as
+        // close to on-time as the platform allows.
+        val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) mgr.canScheduleExactAlarms() else true
         try {
-            mgr.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPending), pending)
-        } catch (_: Exception) {
+            if (canExact) mgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            else mgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        } catch (_: SecurityException) {
             mgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         }
     }
@@ -182,6 +200,27 @@ fun nextOccurrence(recurrence: Recurrence, from: Long, zone: ZoneId = ZoneId.sys
         is Recurrence.Monthly -> nextMonthlyMatch(fromZdt, recurrence.dayOfMonth)
         Recurrence.None       -> null
     }
+}
+
+/**
+ * Advance a recurrence from its previously-scheduled trigger ([scheduledAt]) rather than
+ * from "now", so a late-firing alarm keeps its original time-of-day instead of drifting.
+ * If the next computed occurrence is still in the past (e.g. the device was off for days),
+ * keep advancing until it lands in the future so we never schedule an alarm in the past.
+ */
+fun advanceRecurrence(recurrence: Recurrence, scheduledAt: Long?): Long? {
+    if (recurrence is Recurrence.None) return null
+    val base = scheduledAt ?: System.currentTimeMillis()
+    var next = nextOccurrence(recurrence, base) ?: return null
+    val now = System.currentTimeMillis()
+    var guard = 0
+    while (next <= now && guard < 1000) {
+        val advanced = nextOccurrence(recurrence, next) ?: return next
+        if (advanced <= next) break // safety: no forward progress
+        next = advanced
+        guard++
+    }
+    return next
 }
 
 private fun nextWeeklyMatch(from: ZonedDateTime, dayMask: Int, zone: ZoneId): Long {
@@ -216,7 +255,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
         // Stop custom sound playback on any user action
         if (intent.action != null) {
-            NotificationSoundPlayer.stop()
+            SoundPlaybackService.stop(context)
         }
 
         val hobbyId   = intent.getLongExtra(EXTRA_HOBBY_ID, 0L)
@@ -240,7 +279,10 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 val repository = ServiceLocator.repository(context)
                 val hobby = repository.hobbyByIdSync(hobbyId)
-                val next = hobby?.let { nextOccurrence(it.recurrence, System.currentTimeMillis()) }
+                // Advance from the *scheduled* time (not now) so a late-firing alarm doesn't
+                // drift the recurrence later each cycle. If the resulting time is still in the
+                // past (alarm fired very late / device was off), roll forward until it's future.
+                val next = hobby?.let { advanceRecurrence(it.recurrence, it.nextReminderAt) }
                 if (next != null) {
                     repository.updateReminderSync(hobbyId, next)
                     scheduleReminder(context, hobbyId, hobbyName, next)
@@ -378,8 +420,7 @@ class ReminderReceiver : BroadcastReceiver() {
         if (sound) {
             val customSound = settings.customSoundUri.value
             val duration = settings.playbackDurationSeconds.value
-            val soundUri = if (customSound != null) Uri.parse(customSound) else null
-            NotificationSoundPlayer.play(context, soundUri, duration)
+            SoundPlaybackService.start(context, customSound, duration)
         }
     }
 }
@@ -409,6 +450,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (ServiceLocator.settingsPreferences(context).streakRescueEnabled.value) {
                     StreakRescueScheduler.scheduleNext(context)
                 }
+                ReminderReconcileWorker.schedule(context)
                 NextDueWidgetProvider.refreshAll(context)
                 StreakWidgetProvider.refreshAll(context)
             } finally {
@@ -584,6 +626,38 @@ fun hasNotificationPermission(context: Context): Boolean {
         PackageManager.PERMISSION_GRANTED
 }
 
+/** True if the app is exempt from battery optimization (Doze won't defer its alarms). */
+fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val pm = context.getSystemService(android.os.PowerManager::class.java) ?: return true
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+/**
+ * Open the system dialog asking the user to exempt Donezy from battery optimization, so Doze
+ * and OEM battery managers stop delaying/dropping reminders while the app is closed. Falls back
+ * to the app's settings screen if the direct request action isn't available.
+ */
+@android.annotation.SuppressLint("BatteryLife")
+fun requestIgnoreBatteryOptimizations(context: Context) {
+    val direct = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.parse("package:${context.packageName}")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    if (runCatching { context.startActivity(direct) }.isSuccess) return
+    runCatching {
+        context.startActivity(
+            Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+}
+
+/** True when the OS will honor exact alarms (always pre-S; gated by permission on S+). */
+fun canScheduleExactAlarms(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+    return context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+}
+
 /**
  * Rasterize the launcher icon (mipmap/ic_launcher) so it can be used as a notification's
  * large icon. Adaptive icons need explicit drawing because Bitmap.createBitmap() rejects
@@ -606,50 +680,152 @@ fun launcherIconBitmap(context: Context): Bitmap? {
     return bitmap
 }
 
-object NotificationSoundPlayer {
+/**
+ * Plays the reminder sound from a short-lived foreground service.
+ *
+ * Why a service and not a bare MediaPlayer in the receiver: a BroadcastReceiver's process is
+ * only guaranteed alive until onReceive() (plus goAsync) returns. A MediaPlayer started there
+ * — together with its postDelayed stop — can be killed mid-playback the instant the receiver
+ * finishes, especially when the app is closed. That produced silent/clipped reminders and a
+ * "wrong duration". A foreground service keeps the process alive for the full playback window.
+ *
+ * The service also stops playback on screen-off (power-button press) while deliberately
+ * leaving the reminder notification itself untouched in the shade.
+ */
+class SoundPlaybackService : android.app.Service() {
+
     private var mediaPlayer: MediaPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
-    private val stopRunnable = Runnable { stop() }
+    private val stopRunnable = Runnable { stopSelf() }
 
-    fun play(context: Context, soundUri: Uri?, durationSeconds: Int) {
-        stop()
-        try {
-            val uri = soundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION) ?: return
+    // Power button / screen off → stop the sound, but keep the reminder notification.
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, i: Intent?) {
+            if (i?.action == Intent.ACTION_SCREEN_OFF) stopSelf()
+        }
+    }
+    private var screenReceiverRegistered = false
+
+    override fun onBind(intent: Intent?) = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_SOUND) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // Promote to foreground immediately so the OS can't kill us mid-playback.
+        startForeground(SOUND_SERVICE_NOTIF_ID, buildPlaybackNotification())
+
+        if (!screenReceiverRegistered) {
+            registerReceiver(screenOffReceiver, android.content.IntentFilter(Intent.ACTION_SCREEN_OFF))
+            screenReceiverRegistered = true
+        }
+
+        val soundUriStr = intent?.getStringExtra(EXTRA_SOUND_URI)
+        val duration = (intent?.getIntExtra(EXTRA_SOUND_DURATION, 3) ?: 3).coerceIn(1, 30)
+        startPlayback(soundUriStr, duration)
+        return START_NOT_STICKY
+    }
+
+    private fun startPlayback(soundUriStr: String?, durationSeconds: Int) {
+        handler.removeCallbacks(stopRunnable)
+        releasePlayer()
+        // Try the custom track first; fall back to the default notification sound so the user
+        // always hears *something* rather than silence if the custom file can't be read.
+        val customUri = soundUriStr?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        if (!playUri(customUri) && customUri != null) {
+            playUri(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+        } else if (customUri == null) {
+            playUri(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+        }
+        // Stop after the configured duration regardless of the track's natural length.
+        handler.postDelayed(stopRunnable, durationSeconds * 1000L)
+    }
+
+    /** Returns true if playback started. */
+    private fun playUri(uri: Uri?): Boolean {
+        if (uri == null) return false
+        return try {
             mediaPlayer = MediaPlayer().apply {
-                if (uri.scheme == "file") {
-                    setDataSource(uri.path)
-                } else {
-                    setDataSource(context, uri)
-                }
+                if (uri.scheme == "file") setDataSource(uri.path) else setDataSource(this@SoundPlaybackService, uri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
                         .build()
                 )
+                // Loop so a short clip fills the requested duration; the timed stopRunnable
+                // is the single source of truth for when playback ends.
                 isLooping = true
+                setOnErrorListener { _, _, _ -> stopSelf(); true }
                 prepare()
                 start()
             }
-            handler.postDelayed(stopRunnable, durationSeconds * 1000L)
+            true
         } catch (e: Exception) {
             e.printStackTrace()
+            releasePlayer()
+            false
         }
     }
 
-    fun stop() {
-        handler.removeCallbacks(stopRunnable)
+    private fun buildPlaybackNotification() =
+        NotificationCompat.Builder(this, CHANNEL_PLAYBACK)
+            .setSmallIcon(R.drawable.ic_notification_check)
+            .setContentTitle("Reminder")
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setSilent(true)
+            .setOngoing(true)
+            .build()
+
+    private fun releasePlayer() {
         try {
             mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
-                }
+                if (it.isPlaying) it.stop()
                 it.release()
             }
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
             mediaPlayer = null
+        }
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(stopRunnable)
+        if (screenReceiverRegistered) {
+            runCatching { unregisterReceiver(screenOffReceiver) }
+            screenReceiverRegistered = false
+        }
+        releasePlayer()
+        super.onDestroy()
+    }
+
+    companion object {
+        fun start(context: Context, soundUri: String?, durationSeconds: Int) {
+            val intent = Intent(context, SoundPlaybackService::class.java).apply {
+                putExtra(EXTRA_SOUND_URI, soundUri)
+                putExtra(EXTRA_SOUND_DURATION, durationSeconds)
+            }
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: Exception) {
+                // startForegroundService can throw if we're not allowed to start from background
+                // on some OEMs; the reminder notification is already posted, so just swallow it.
+                e.printStackTrace()
+            }
+        }
+
+        fun stop(context: Context) {
+            val intent = Intent(context, SoundPlaybackService::class.java).apply {
+                action = ACTION_STOP_SOUND
+            }
+            try {
+                context.startService(intent)
+            } catch (_: Exception) {
+                // Service not running / can't be started → nothing playing to stop.
+            }
         }
     }
 }

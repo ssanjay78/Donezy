@@ -102,6 +102,9 @@ class HobbyViewModel(
         viewModelScope.launch {
             repository.refresh()
             StreakRescueScheduler.scheduleNext(appContext)
+            // Periodic safety net that re-arms / delivers reminders missed while the app
+            // was closed (Doze, OEM battery managers, denied exact-alarm permission).
+            ReminderReconcileWorker.schedule(appContext)
         }
     }
 

@@ -296,7 +296,14 @@ fun HomeScreen(viewModel: HobbyViewModel) {
             onRefresh = {
                 isRefreshing = true
                 scope.launch {
+                    // repository.refresh() re-reads in-memory state and completes in a few ms,
+                    // which flips isRefreshing back almost within a frame and leaves the
+                    // Material3 indicator stuck mid-animation. Hold it visible briefly so the
+                    // reveal/retract animation can settle and the gesture reads as completed.
+                    val started = System.currentTimeMillis()
                     viewModel.refresh().join()
+                    val elapsed = System.currentTimeMillis() - started
+                    kotlinx.coroutines.delay((600L - elapsed).coerceAtLeast(0L))
                     isRefreshing = false
                 }
             },

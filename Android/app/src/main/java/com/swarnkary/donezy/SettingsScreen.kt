@@ -9,13 +9,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +30,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -41,6 +49,24 @@ fun SettingsScreen(viewModel: HobbyViewModel) {
     var showThemeDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Re-read OS-level flags whenever we return from a system settings screen so the rows
+    // reflect the user's choice without needing an app restart.
+    var notificationsAllowed by remember { mutableStateOf(hasNotificationPermission(context)) }
+    var batteryUnrestricted  by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
+    var exactAlarmsAllowed   by remember { mutableStateOf(canScheduleExactAlarms(context)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsAllowed = hasNotificationPermission(context)
+                batteryUnrestricted  = isIgnoringBatteryOptimizations(context)
+                exactAlarmsAllowed   = canScheduleExactAlarms(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     BackHandler { viewModel.goHome() }
 
@@ -65,6 +91,42 @@ fun SettingsScreen(viewModel: HobbyViewModel) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SettingsSectionHeader("Notifications")
+
+            // Surface the reasons reminders silently fail to arrive, with one-tap fixes.
+            if (!notificationsAllowed) {
+                SettingsWarningRow(
+                    icon = Icons.Default.NotificationsActive,
+                    title = "Notifications are off",
+                    subtitle = "Reminders can't be shown until you allow notifications. Tap to open settings.",
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        runCatching { context.startActivity(intent) }
+                    }
+                )
+            }
+            if (!batteryUnrestricted) {
+                SettingsWarningRow(
+                    icon = Icons.Default.BatteryAlert,
+                    title = "Allow background activity",
+                    subtitle = "Battery optimization can delay or block reminders when the app is closed. Tap to fix.",
+                    onClick = { requestIgnoreBatteryOptimizations(context) }
+                )
+            }
+            if (!exactAlarmsAllowed) {
+                SettingsWarningRow(
+                    icon = Icons.Default.Schedule,
+                    title = "Allow precise reminders",
+                    subtitle = "Without exact alarms, reminders may fire late. Tap to enable.",
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                            .setData(Uri.parse("package:${context.packageName}"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        runCatching { context.startActivity(intent) }
+                    }
+                )
+            }
 
             @Suppress("DEPRECATION")
             SettingsToggleRow(
@@ -215,6 +277,38 @@ private fun SettingsToggleRow(
 }
 
 @Composable
+private fun SettingsWarningRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 0.dp,
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onErrorContainer)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f))
+            }
+            Icon(Icons.Default.OpenInNew, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer)
+        }
+    }
+}
+
+@Composable
 private fun SettingsClickRow(
     icon: ImageVector,
     title: String,
@@ -266,7 +360,7 @@ private fun SettingsSoundRow(
             Column(Modifier.weight(1f)) {
                 Text("Notification sound", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (customSoundUri == null) "Default system sound" else "Custom: ${customSoundUri.substringAfterLast("/")}",
+                    if (customSoundUri == null) "Tap Browse to pick your own sound track" else "Custom: ${customSoundUri.substringAfterLast("/")}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -275,6 +369,19 @@ private fun SettingsSoundRow(
                 IconButton(onClick = onClearSound) {
                     Icon(Icons.Default.Close, contentDescription = "Clear custom sound")
                 }
+            }
+            // Explicit affordance so users discover they can choose their own track.
+            OutlinedButton(
+                onClick = onPickSound,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Icon(
+                    Icons.Default.FolderOpen,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Browse")
             }
         }
     }

@@ -12,8 +12,19 @@
          deliberately NOT declared: it is a restricted permission Google reserves for
          apps whose core purpose is alarms/clocks/calendars, and declaring it on a
          habit tracker risks a policy rejection. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <!-- On API 33+ we rely on USE_EXACT_ALARM-free inexact scheduling plus a WorkManager
+         reconciliation safety net; on 31-32 the SCHEDULE_EXACT_ALARM above applies. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Short-lived foreground service plays the reminder sound so the OS can't kill the
+         process mid-playback when the app is closed. mediaPlayback type per API 34+ rules. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Lets the app ask the user to exempt it from battery optimization so Doze /
+         aggressive OEM battery managers don't delay or drop reminders when closed. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Widget surfaces explicitly require this declaration to be selectable on
          the launcher's widget picker on some launchers. -->
@@ -52,6 +63,11 @@
             android:theme="@style/SnoozeDialogTheme"
             android:excludeFromRecents="true"
             android:noHistory="true" />
+
+        <service
+            android:name=".SoundPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <receiver
             android:name=".ReminderReceiver"
