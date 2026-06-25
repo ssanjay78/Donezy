@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.LocalFireDepartment
@@ -42,6 +43,7 @@ fun SettingsScreen(viewModel: HobbyViewModel) {
     val sound by viewModel.soundEnabled.collectAsState()
     val vibrate by viewModel.vibrateEnabled.collectAsState()
     val streakRescue by viewModel.streakRescueEnabled.collectAsState()
+    val keepAlive by viewModel.keepAliveEnabled.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val customSoundUri by viewModel.customSoundUri.collectAsState()
     val playbackDurationSeconds by viewModel.playbackDurationSeconds.collectAsState()
@@ -172,6 +174,15 @@ fun SettingsScreen(viewModel: HobbyViewModel) {
                 subtitle = "Get a 23:30 nudge if you're at risk of breaking a streak",
                 checked = streakRescue,
                 onChange = { viewModel.setStreakRescueEnabled(it) }
+            )
+            SettingsToggleRow(
+                icon = Icons.Default.Shield,
+                title = "Guaranteed reminders",
+                subtitle = "Shows a permanent silent notification so reminders still arrive on " +
+                    "phones that kill apps when closed (Samsung, Xiaomi). Turn on if reminders " +
+                    "don't fire after swiping the app away.",
+                checked = keepAlive,
+                onChange = { viewModel.setKeepAliveEnabled(it) }
             )
             @Suppress("DEPRECATION")
             SettingsClickRow(

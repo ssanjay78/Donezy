@@ -42,6 +42,9 @@ private const val CHANNEL_STREAK       = "streak_rescue"
 // Low-importance channel for the foreground "sound playback" service notification.
 // IMPORTANCE_MIN keeps it out of the status bar and collapsed at the bottom of the shade.
 private const val CHANNEL_PLAYBACK     = "sound_playback"
+// Low-importance channel for the persistent "keep-alive" foreground service notification
+// (opt-in "guaranteed reminders" mode). IMPORTANCE_MIN keeps it collapsed and silent.
+private const val CHANNEL_KEEPALIVE    = "reminder_keepalive"
 private const val EXTRA_HOBBY_ID       = "hobby_id"
 private const val EXTRA_HOBBY_NAME     = "hobby_name"
 private const val EXTRA_SNOOZE_AT      = "snooze_at"
@@ -52,8 +55,10 @@ const val ACTION_LOG_DONE              = "com.swarnkary.donezy.REMINDER_LOG_DONE
 const val ACTION_REMINDER_DISMISS      = "com.swarnkary.donezy.REMINDER_DISMISS"
 const val ACTION_REMINDER_SNOOZE       = "com.swarnkary.donezy.REMINDER_SNOOZE"
 const val ACTION_STOP_SOUND            = "com.swarnkary.donezy.STOP_SOUND"
+const val ACTION_STOP_KEEPALIVE        = "com.swarnkary.donezy.STOP_KEEPALIVE"
 private const val STREAK_REQUEST_CODE  = 0x57Ea_C0DE
 private const val SOUND_SERVICE_NOTIF_ID = 0x50_0001
+private const val KEEPALIVE_NOTIF_ID      = 0x50_0002
 // Per-hobby PendingIntent request codes derive from hobbyId.toInt() + a per-action offset
 // so the three action buttons on one notification don't collide with each other or the
 // content-tap intent (which uses the bare hobbyId.toInt()).
@@ -104,6 +109,18 @@ fun ensureNotificationChannel(context: Context) {
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_STREAK, "Streak rescue", NotificationManager.IMPORTANCE_LOW)
                 .apply { description = "End-of-day nudge to keep your streak alive" }
+        )
+    }
+
+    if (mgr.getNotificationChannel(CHANNEL_KEEPALIVE) == null) {
+        mgr.createNotificationChannel(
+            NotificationChannel(CHANNEL_KEEPALIVE, "Reminder protection", NotificationManager.IMPORTANCE_MIN)
+                .apply {
+                    description = "Permanent notification that keeps reminders reliable when the app is closed"
+                    setShowBadge(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                }
         )
     }
 
@@ -425,6 +442,106 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 }
 
+// ─── Keep-alive foreground service ─────────────────────────────────────────────
+
+/**
+ * Opt-in "guaranteed reminders" mode.
+ *
+ * On stock Android, a scheduled [AlarmManager.setAlarmClock] survives the app being swiped from
+ * recents — the OS restarts the process to deliver it. But aggressive OEMs (Samsung One UI deep
+ * sleep, Xiaomi MIUI, Oppo/Vivo) treat a swipe-away as a force-stop: alarms are cancelled,
+ * WorkManager is suspended, and even BOOT_COMPLETED is blocked, so none of our fallbacks run.
+ *
+ * A running foreground service is the one thing those OEMs won't tear down on swipe, because the
+ * process stays "in use". Keeping this trivial service alive therefore keeps the scheduled alarms
+ * alive. The cost is a permanent, minimized, silent notification — which is exactly why this is
+ * an explicit user opt-in rather than always-on.
+ *
+ * START_STICKY + onTaskRemoved re-arming means the OS brings the service back if it ever is
+ * killed, and BootReceiver restarts it after a reboot.
+ */
+class ReminderKeepAliveService : android.app.Service() {
+
+    override fun onBind(intent: Intent?) = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_KEEPALIVE) {
+            stopForegroundCompat()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        ensureNotificationChannel(this)
+        startForeground(KEEPALIVE_NOTIF_ID, buildKeepAliveNotification())
+        return START_STICKY
+    }
+
+    /** If the user swipes the task away, make sure the service comes straight back. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (ServiceLocator.settingsPreferences(this).keepAliveEnabled.value) {
+            start(this)
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
+    private fun buildKeepAliveNotification(): android.app.Notification {
+        val tapIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            this, 0, tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(this, CHANNEL_KEEPALIVE)
+            .setSmallIcon(R.drawable.ic_notification_check)
+            .setContentTitle("Reminders active")
+            .setContentText("Keeping your reminders reliable")
+            .setContentIntent(contentIntent)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setOngoing(true)
+            .build()
+    }
+
+    private fun stopForegroundCompat() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION") stopForeground(true)
+        }
+    }
+
+    companion object {
+        fun start(context: Context) {
+            val intent = Intent(context, ReminderKeepAliveService::class.java)
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: Exception) {
+                // Background-start restrictions on some OEMs can reject this; the alarm itself is
+                // still scheduled, so degrade gracefully rather than crash.
+                e.printStackTrace()
+            }
+        }
+
+        fun stop(context: Context) {
+            val intent = Intent(context, ReminderKeepAliveService::class.java).apply {
+                action = ACTION_STOP_KEEPALIVE
+            }
+            try {
+                context.startService(intent)
+            } catch (_: Exception) {
+                // Not running → nothing to stop.
+            }
+        }
+
+        /** Start or stop the service to match the user's saved preference. */
+        fun sync(context: Context) {
+            if (ServiceLocator.settingsPreferences(context).keepAliveEnabled.value) start(context)
+            else stop(context)
+        }
+    }
+}
+
 // ─── Boot receiver ────────────────────────────────────────────────────────────
 
 class BootReceiver : BroadcastReceiver() {
@@ -450,6 +567,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (ServiceLocator.settingsPreferences(context).streakRescueEnabled.value) {
                     StreakRescueScheduler.scheduleNext(context)
                 }
+                ReminderKeepAliveService.sync(context)
                 ReminderReconcileWorker.schedule(context)
                 NextDueWidgetProvider.refreshAll(context)
                 StreakWidgetProvider.refreshAll(context)

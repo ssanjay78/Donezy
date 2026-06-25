@@ -55,6 +55,7 @@ class HobbyViewModel(
     val soundEnabled: StateFlow<Boolean>        = settingsPreferences.soundEnabled
     val vibrateEnabled: StateFlow<Boolean>      = settingsPreferences.vibrateEnabled
     val streakRescueEnabled: StateFlow<Boolean> = settingsPreferences.streakRescueEnabled
+    val keepAliveEnabled: StateFlow<Boolean>    = settingsPreferences.keepAliveEnabled
     val customSoundUri: StateFlow<String?>      = settingsPreferences.customSoundUri
     val playbackDurationSeconds: StateFlow<Int>    = settingsPreferences.playbackDurationSeconds
 
@@ -64,6 +65,10 @@ class HobbyViewModel(
         settingsPreferences.setStreakRescue(enabled)
         if (enabled) StreakRescueScheduler.scheduleNext(appContext)
         else StreakRescueScheduler.cancel(appContext)
+    }
+    fun setKeepAliveEnabled(enabled: Boolean) {
+        settingsPreferences.setKeepAlive(enabled)
+        ReminderKeepAliveService.sync(appContext)
     }
     fun setCustomSoundUri(uri: String?)          = settingsPreferences.setCustomSound(uri)
     fun setPlaybackDurationSeconds(seconds: Int)    = settingsPreferences.setPlaybackDuration(seconds)
@@ -102,6 +107,8 @@ class HobbyViewModel(
         viewModelScope.launch {
             repository.refresh()
             StreakRescueScheduler.scheduleNext(appContext)
+            // Re-arm the keep-alive service if the user opted in (the OS may have stopped it).
+            ReminderKeepAliveService.sync(appContext)
             // Periodic safety net that re-arms / delivers reminders missed while the app
             // was closed (Doze, OEM battery managers, denied exact-alarm permission).
             ReminderReconcileWorker.schedule(appContext)

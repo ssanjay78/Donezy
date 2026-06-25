@@ -18,6 +18,13 @@ class SettingsPreferences(context: Context) {
     private val _streakRescueEnabled = MutableStateFlow(prefs.getBoolean(KEY_STREAK_RESCUE, true))
     val streakRescueEnabled: StateFlow<Boolean> = _streakRescueEnabled
 
+    // Opt-in "guaranteed delivery" mode: runs a persistent foreground service (with a permanent
+    // minimized notification) so aggressive OEMs (Samsung, Xiaomi, …) can't kill the process on
+    // swipe-away and drop the scheduled alarms. Off by default — most users don't need the
+    // permanent notification, and it's only reliable workaround on hostile OEMs.
+    private val _keepAliveEnabled = MutableStateFlow(prefs.getBoolean(KEY_KEEP_ALIVE, false))
+    val keepAliveEnabled: StateFlow<Boolean> = _keepAliveEnabled
+
     private val _customSoundUri = MutableStateFlow(prefs.getString(KEY_CUSTOM_SOUND, null))
     val customSoundUri: StateFlow<String?> = _customSoundUri
 
@@ -42,6 +49,11 @@ class SettingsPreferences(context: Context) {
         _streakRescueEnabled.value = enabled
     }
 
+    fun setKeepAlive(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_KEEP_ALIVE, enabled).apply()
+        _keepAliveEnabled.value = enabled
+    }
+
     fun setCustomSound(uri: String?) {
         prefs.edit().putString(KEY_CUSTOM_SOUND, uri).apply()
         _customSoundUri.value = uri
@@ -60,6 +72,7 @@ class SettingsPreferences(context: Context) {
         const val KEY_SOUND                = "notif_sound"
         const val KEY_VIBRATE              = "notif_vibrate"
         const val KEY_STREAK_RESCUE        = "streak_rescue"
+        const val KEY_KEEP_ALIVE           = "keep_alive_service"
         const val KEY_CUSTOM_SOUND         = "custom_sound_uri"
         const val KEY_PLAYBACK_DURATION    = "playback_duration_seconds"
         const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"

@@ -22,6 +22,10 @@
          process mid-playback when the app is closed. mediaPlayback type per API 34+ rules. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Opt-in "guaranteed reminders" keep-alive service. specialUse is the honest type for a
+         persistent process whose sole job is to stop aggressive OEMs (Samsung deep sleep, MIUI,
+         ColorOS) from killing the app on swipe-away and dropping its scheduled alarms. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Lets the app ask the user to exempt it from battery optimization so Doze /
          aggressive OEM battery managers don't delay or drop reminders when closed. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -68,6 +72,17 @@
             android:name=".SoundPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Persistent keep-alive for opt-in "guaranteed reminders" mode. specialUse type with a
+             declared justification, per Android 14+ foreground-service requirements. -->
+        <service
+            android:name=".ReminderKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps scheduled habit reminders reliable on OEMs that kill background apps on swipe-away" />
+        </service>
 
         <receiver
             android:name=".ReminderReceiver"
